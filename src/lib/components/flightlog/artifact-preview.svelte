@@ -23,29 +23,27 @@
 </script>
 
 {#if artifact}
-	<div class="flex min-h-64 flex-col border border-border">
-		<div class="border-b border-border px-3 py-2">
-			<p class="text-sm font-medium">{artifact.name ?? artifact.type}</p>
-			<p class="text-xs text-muted-foreground">{artifact.mimeType ?? artifact.publicId}</p>
+	<div class="flex min-h-56 flex-col border border-border">
+		<div class="flex items-center justify-between border-b border-border px-3 py-1.5">
+			<p class="font-mono text-xs font-medium">{artifact.name ?? artifact.type}</p>
+			<p class="font-mono text-[10px] text-muted-foreground">{artifact.mimeType ?? artifact.publicId}</p>
 		</div>
 		{#if artifact.type === 'screenshot' && (artifact.content || artifact.url)}
 			<img
-				class="max-h-[420px] w-full object-contain"
+				class="max-h-[400px] w-full object-contain"
 				src={artifact.content ?? artifact.url ?? ''}
 				alt={artifact.name ?? 'Run screenshot'}
 			/>
 		{:else}
 			<Tabs.Root value="content" class="flex min-h-0 flex-1 flex-col">
 				<Tabs.List class="m-2 w-fit">
-					<Tabs.Trigger value="content">Content</Tabs.Trigger>
-					<Tabs.Trigger value="url">URL</Tabs.Trigger>
+					<Tabs.Trigger value="content" class="font-mono text-xs">Content</Tabs.Trigger>
+					<Tabs.Trigger value="url" class="font-mono text-xs">URL</Tabs.Trigger>
 				</Tabs.List>
 				<Tabs.Content value="content" class="m-0 min-h-0 flex-1">
-					<pre class="max-h-[420px] overflow-auto p-3 text-xs">{displayContent(
-							artifact.content
-						)}</pre>
+					<pre class="max-h-[400px] overflow-auto p-3 font-mono text-xs text-muted-foreground">{displayContent(artifact.content)}</pre>
 				</Tabs.Content>
-				<Tabs.Content value="url" class="m-0 p-3 text-sm">
+				<Tabs.Content value="url" class="m-0 p-3 font-mono text-xs">
 					{#if artifact.url}<span class="break-all">{artifact.url}</span>{:else}No URL{/if}
 				</Tabs.Content>
 			</Tabs.Root>
@@ -53,7 +51,7 @@
 	</div>
 {:else}
 	<div
-		class="flex min-h-64 items-center justify-center border border-dashed border-border p-6 text-sm text-muted-foreground"
+		class="flex min-h-56 items-center justify-center border border-dashed border-border p-6 font-mono text-xs text-muted-foreground"
 	>
 		No artifact selected
 	</div>
