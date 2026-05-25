@@ -1,4 +1,9 @@
 import { getRunDashboardMetrics, listRuns } from '$lib/server/runs';
+import {
+	defaultTools,
+	listProviderCredentials,
+	modelCatalog
+} from '$lib/server/provider-credentials';
 import { runStatusSchema } from '$lib/server/validation';
 
 export async function load({ url }) {
@@ -9,5 +14,13 @@ export async function load({ url }) {
 		listRuns({ status, q, limit: 50, offset: 0 }),
 		getRunDashboardMetrics()
 	]);
-	return { ...result, metrics, filters: { status, q: q ?? '' } };
+	const credentials = await listProviderCredentials();
+	return {
+		...result,
+		metrics,
+		filters: { status, q: q ?? '' },
+		credentials,
+		modelCatalog,
+		tools: defaultTools
+	};
 }

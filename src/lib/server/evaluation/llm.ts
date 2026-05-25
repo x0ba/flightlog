@@ -1,11 +1,12 @@
 import { env } from '$env/dynamic/private';
-import type { events, runs } from '$lib/server/db/schema';
+import type { events, runs, spans } from '$lib/server/db/schema';
 import { llmEvaluationSchema, type LlmEvaluation } from './types';
 
 const DEFAULT_MODEL = 'gpt-4.1-mini';
 
 type RunRow = typeof runs.$inferSelect;
 type EventRow = typeof events.$inferSelect;
+type SpanRow = typeof spans.$inferSelect;
 
 type OpenAIResponsePayload = {
 	output_text?: string;
@@ -20,6 +21,7 @@ type OpenAIResponsePayload = {
 export async function runLlmEvaluation(input: {
 	run: RunRow;
 	events: EventRow[];
+	spans?: SpanRow[];
 	constraints: string[];
 	ruleSummary: unknown;
 }) {
@@ -46,8 +48,7 @@ export async function runLlmEvaluation(input: {
 			input: [
 				{
 					role: 'system',
-					content:
-						'You evaluate browser/AI agent run logs. Return only JSON matching the requested schema.'
+					content: 'You evaluate agent run logs. Return only JSON matching the requested schema.'
 				},
 				{
 					role: 'user',
@@ -71,7 +72,18 @@ export async function runLlmEvaluation(input: {
 						goal: input.run.goal,
 						constraints: input.constraints,
 						ruleSummary: input.ruleSummary,
-						timeline
+						timeline,
+						spans: input.spans?.map((span) => ({
+							id: span.publicId,
+							parentSpanId: span.parentSpanId,
+							kind: span.kind,
+							name: span.name,
+							status: span.status,
+							input: span.input,
+							output: span.output,
+							error: span.error,
+							attributes: span.attributes
+						}))
 					})
 				}
 			],

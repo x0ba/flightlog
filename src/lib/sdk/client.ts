@@ -1,4 +1,11 @@
-import type { AttachArtifactInput, LogEventInput, RunStatus, StartRunInput } from './types';
+import type {
+	AttachArtifactInput,
+	EndSpanInput,
+	LogEventInput,
+	RunStatus,
+	StartRunInput,
+	StartSpanInput
+} from './types';
 
 type ClientConfig = {
 	endpoint: string;
@@ -20,6 +27,16 @@ export class FlightLogClient {
 			body: input
 		});
 		return new FlightLogRun(this, response.run.id);
+	}
+
+	async startTrace(input: StartRunInput) {
+		const response = await this.request<{
+			trace: { id: string; schemaVersion: string; status: RunStatus };
+		}>('/api/v1/traces', {
+			method: 'POST',
+			body: { schemaVersion: 'flightlog.trace.v1', ...input }
+		});
+		return new FlightLogTrace(this, response.trace.id);
 	}
 
 	async request<T>(path: string, init: { method: string; body?: unknown }) {
@@ -101,5 +118,120 @@ export class FlightLogRun {
 			`/api/runs/${this.id}/evaluate`,
 			{ method: 'POST', body: input }
 		);
+	}
+}
+
+export class FlightLogTrace {
+	constructor(
+		private client: FlightLogClient,
+		public id: string
+	) {}
+
+	logEvent(input: LogEventInput) {
+		return this.client.request<{ event: { id: string; sequence: number } }>(
+			`/api/v1/traces/${this.id}/events`,
+			{ method: 'POST', body: input }
+		);
+	}
+
+	startSpan(input: StartSpanInput) {
+		return this.client
+			.request<{ span: { id: string; status: string } }>(`/api/v1/traces/${this.id}/spans`, {
+				method: 'POST',
+				body: input
+			})
+			.then((response) => new FlightLogSpan(this, response.span.id));
+	}
+
+	async logToolCall(input: {
+		name: string;
+		input?: unknown;
+		attributes?: unknown;
+		parentSpanId?: string;
+	}) {
+		return this.startSpan({
+			kind: 'tool_call',
+			name: input.name,
+			input: input.input,
+			attributes: input.attributes,
+			parentSpanId: input.parentSpanId,
+			status: 'running'
+		});
+	}
+
+	async logModelCall(input: {
+		name: string;
+		input?: unknown;
+		attributes?: unknown;
+		parentSpanId?: string;
+	}) {
+		return this.startSpan({
+			kind: 'model_call',
+			name: input.name,
+			input: input.input,
+			attributes: input.attributes,
+			parentSpanId: input.parentSpanId,
+			status: 'running'
+		});
+	}
+
+	async logBrowserAction(input: {
+		name: string;
+		input?: unknown;
+		attributes?: unknown;
+		parentSpanId?: string;
+	}) {
+		return this.startSpan({
+			kind: 'browser_action',
+			name: input.name,
+			input: input.input,
+			attributes: input.attributes,
+			parentSpanId: input.parentSpanId,
+			status: 'running'
+		});
+	}
+
+	attachArtifact(input: AttachArtifactInput) {
+		return this.client.request<{ artifact: { id: string; type: string } }>(
+			`/api/runs/${this.id}/artifacts`,
+			{ method: 'POST', body: input }
+		);
+	}
+
+	finish(input: { status: Exclude<RunStatus, 'running'>; metadata?: unknown }) {
+		return this.client.request<{ trace: { id: string; status: RunStatus } }>(
+			`/api/v1/traces/${this.id}`,
+			{ method: 'PATCH', body: input }
+		);
+	}
+
+	endSpan(spanId: string, input: EndSpanInput) {
+		return this.client.request<{ span: { id: string; status: string } }>(
+			`/api/v1/traces/${this.id}/spans/${spanId}`,
+			{ method: 'PATCH', body: input }
+		);
+	}
+}
+
+export class FlightLogSpan {
+	constructor(
+		private trace: FlightLogTrace,
+		public id: string
+	) {}
+
+	logEvent(input: Omit<LogEventInput, 'spanId'>) {
+		return this.trace.logEvent({ ...input, spanId: this.id });
+	}
+
+	end(input: EndSpanInput) {
+		return this.trace.endSpan(this.id, input);
+	}
+
+	complete(output?: unknown, attributes?: unknown) {
+		return this.end({ status: 'completed', output, attributes });
+	}
+
+	fail(error: unknown, attributes?: unknown) {
+		return this.end({ status: 'failed', error, attributes });
 	}
 }

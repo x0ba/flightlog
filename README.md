@@ -1,6 +1,8 @@
 # FlightLog
 
-FlightLog is an AgentOps flight recorder for browser and AI agents. It logs runs, tool calls, observations, artifacts, replay timelines, and evaluations so you can inspect what an autonomous agent did.
+FlightLog is an AgentOps flight recorder for browser and AI agents. It logs traces, model calls,
+tool calls, browser actions, observations, artifacts, replay timelines, and evaluations so you can
+inspect what an autonomous agent did across model providers and agent frameworks.
 
 ## Setup
 
@@ -15,6 +17,7 @@ Required environment:
 
 ```sh
 DATABASE_URL=
+FLIGHTLOG_KEYS_SECRET=
 ```
 
 Optional LLM evaluation environment:
@@ -29,15 +32,29 @@ FLIGHTLOG_AGENT_MAX_STEPS=20
 FLIGHTLOG_AGENT_APPROVAL_TIMEOUT_SECONDS=300
 ```
 
-If `OPENAI_API_KEY` is missing, evaluations still run with deterministic rule checks. UI-triggered
-agent runs require `OPENAI_API_KEY` and `BROWSERBASE_API_KEY` because they use OpenAI computer use
-through the Responses API against Browserbase cloud browsers.
+`FLIGHTLOG_KEYS_SECRET` is required when saving or using dashboard-entered provider API keys. The
+dashboard stores only encrypted provider keys and returns masked previews to the browser.
+
+If `OPENAI_API_KEY` is missing, evaluations still run with deterministic rule checks. Browser-mode
+UI agent runs require `OPENAI_API_KEY` and `BROWSERBASE_API_KEY` because they use OpenAI computer use
+through the Responses API against Browserbase cloud browsers. Tool-agent dashboard runs use the
+encrypted OpenAI or Anthropic credential selected in the UI.
 
 ## UI Agent Runs
 
-Open `/runs`, enter a browser task in the prompt composer, and start a run. FlightLog creates a run,
-opens the run detail page, and streams events live over Server-Sent Events while a headless
-Browserbase Chromium session is controlled by OpenAI computer use through Playwright CDP.
+Open `/runs`, save an OpenAI or Anthropic provider key, choose a run mode, provider, framework,
+model, and tools, then start a run. FlightLog creates a run, opens the run detail page, and streams
+events and spans live over Server-Sent Events.
+
+Tool-agent runs use a curated local tool registry:
+
+- `calculator.evaluate`
+- `web.fetchText`
+- `web.searchMock`
+- `time.now`
+
+Browser runs still use OpenAI computer use through Playwright CDP against a Browserbase Chromium
+session.
 
 During a live run, FlightLog logs:
 
@@ -49,6 +66,14 @@ During a live run, FlightLog logs:
 - final result or failure details
 
 Screenshots are stored as screenshot artifacts and shown in the replay panel as they arrive.
+
+Tool-agent runs log:
+
+- model call spans
+- tool call spans
+- tool inputs, outputs, and failures
+- final result text
+- provider, framework, model, and run mode metadata
 
 ### Approvals
 
@@ -114,9 +139,72 @@ await run.finish({ status: 'success' });
 await run.evaluate({ constraints: ['Do not place a real order'] });
 ```
 
+## Trace API Example
+
+The versioned trace API is the model/framework-agnostic surface. It keeps browser actions
+first-class for replay, but represents model calls and tool calls as spans with lifecycle events.
+
+```ts
+import { FlightLogClient, openAIAttributes } from '$lib';
+
+const flightlog = new FlightLogClient({ endpoint: 'http://localhost:5173' });
+const trace = await flightlog.startTrace({
+	goal: 'Look up the customer and draft a refund response',
+	name: 'Refund agent',
+	agentName: 'support-agent',
+	metadata: { framework: 'custom-loop' }
+});
+
+const model = await trace.logModelCall({
+	name: 'plan next action',
+	input: { messages: [{ role: 'user', content: 'Refund request' }] },
+	attributes: openAIAttributes({ model: 'gpt-4.1' })
+});
+await model.complete({ tool: 'crm.lookupCustomer' });
+
+const tool = await trace.logToolCall({
+	name: 'crm.lookupCustomer',
+	input: { email: 'customer@example.com' }
+});
+await tool.complete({ customerId: 'cus_123' });
+
+await trace.finish({ status: 'success' });
+```
+
+### Framework Metadata Helpers
+
+```ts
+import {
+	aiSdkAttributes,
+	anthropicAttributes,
+	instrumentModelCall,
+	langChainAttributes
+} from '$lib';
+
+await instrumentModelCall({
+	trace,
+	name: 'anthropic planning call',
+	metadata: anthropicAttributes({ model: 'claude-sonnet-4-5' }),
+	call: async () => {
+		// Call Anthropic from your app. FlightLog observes metadata/results only.
+		return { text: 'Use the CRM lookup tool.' };
+	}
+});
+
+await trace.logModelCall({
+	name: 'ai sdk generateText',
+	attributes: aiSdkAttributes({ provider: 'openai', model: 'gpt-4.1-mini' })
+});
+
+await trace.logModelCall({
+	name: 'langchain runnable',
+	attributes: langChainAttributes({ provider: 'anthropic', model: 'claude-haiku-4-5' })
+});
+```
+
 ## MVP Limitations
 
-- No auth or API keys.
+- No auth or organizations; saved provider keys are installation-wide.
 - No organizations or projects.
 - Artifacts are stored in Postgres as text, URLs, or data URLs.
 - Replay is timeline-based, not a true browser session replay.

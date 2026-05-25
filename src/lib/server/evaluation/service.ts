@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { evaluationFindings, evaluations, events, runs } from '$lib/server/db/schema';
+import { evaluationFindings, evaluations, events, runs, spans } from '$lib/server/db/schema';
 import { publicId } from '$lib/server/public-id';
 import { evaluateRules } from './rules';
 import { fallbackEvaluation, runLlmEvaluation } from './llm';
@@ -14,6 +14,7 @@ export async function evaluateRun(publicRunId: string, constraints: string[]) {
 		.from(events)
 		.where(eq(events.runId, run.id))
 		.orderBy(events.sequence);
+	const spanList = await db.select().from(spans).where(eq(spans.runId, run.id));
 	const ruleSummary = evaluateRules(eventsList);
 
 	const [evaluation] = await db
@@ -30,7 +31,13 @@ export async function evaluateRun(publicRunId: string, constraints: string[]) {
 		.returning();
 
 	try {
-		const llm = await runLlmEvaluation({ run, events: eventsList, constraints, ruleSummary });
+		const llm = await runLlmEvaluation({
+			run,
+			events: eventsList,
+			spans: spanList,
+			constraints,
+			ruleSummary
+		});
 		const result = llm.skipped
 			? fallbackEvaluation({
 					goalCompleted: run.status === 'success',

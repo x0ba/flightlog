@@ -74,26 +74,51 @@
 
 <div class="flex flex-col gap-3">
 	<!-- Transport bar -->
-	<div class="flex items-center gap-2 border border-border bg-background px-2 py-1.5">
-		<Button variant="ghost" size="icon" class="size-7" onclick={() => move(-1)} aria-label="Previous event">
+	<div class="flex items-center gap-1.5 border border-border bg-background px-2 py-1">
+		<Button
+			variant="ghost"
+			size="icon"
+			class="size-7"
+			onclick={() => move(-1)}
+			aria-label="Previous event"
+		>
 			<SkipBack class="size-3.5" />
 		</Button>
 		<Button variant="ghost" size="icon" class="size-7" onclick={toggle} aria-label="Play replay">
 			{#if playing}<Pause class="size-3.5" />{:else}<Play class="size-3.5" />{/if}
 		</Button>
-		<Button variant="ghost" size="icon" class="size-7" onclick={() => move(1)} aria-label="Next event">
+		<Button
+			variant="ghost"
+			size="icon"
+			class="size-7"
+			onclick={() => move(1)}
+			aria-label="Next event"
+		>
 			<SkipForward class="size-3.5" />
 		</Button>
-		<div class="ml-auto flex items-center gap-2 min-w-0">
-			<span class="font-mono text-[10px] text-muted-foreground">{selectedIndex + 1} / {events.length}</span>
+		<div class="ml-auto flex min-w-0 items-center gap-2">
+			<span class="font-mono text-[10px] text-muted-foreground"
+				>{selectedIndex + 1} / {events.length}</span
+			>
 		</div>
 	</div>
 
 	<!-- Event label -->
-	<div class="min-w-0">
-		<p class="truncate text-sm font-medium">{selectedEvent?.title ?? selectedEvent?.message ?? 'No events'}</p>
-		<p class="font-mono text-[10px] text-muted-foreground">{selectedEvent?.type ?? 'empty'}</p>
-	</div>
+	{#key selectedSequence}
+		<div class="min-w-0" style="animation: fadeIn 150ms ease-out">
+			<p class="truncate text-sm font-medium">
+				{selectedEvent?.title ?? selectedEvent?.message ?? 'No events'}
+			</p>
+			<p class="font-mono text-[10px] text-muted-foreground">{selectedEvent?.type ?? 'empty'}</p>
+		</div>
+	{/key}
 
 	<ArtifactPreview artifact={selectedArtifact} />
 </div>
+
+<style>
+	@keyframes fadeIn {
+		from { opacity: 0; transform: translateY(2px); }
+		to { opacity: 1; transform: translateY(0); }
+	}
+</style>

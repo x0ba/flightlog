@@ -3,11 +3,13 @@ import type {
 	evaluationFindings,
 	evaluations,
 	events,
-	runs
+	runs,
+	spans
 } from '$lib/server/db/schema';
 
 export type RunRow = typeof runs.$inferSelect;
 export type EventRow = typeof events.$inferSelect;
+export type SpanRow = typeof spans.$inferSelect;
 export type ArtifactRow = typeof artifacts.$inferSelect & { eventSequence?: number | null };
 
 export type AgentRunStatus =
@@ -39,6 +41,16 @@ export type AgentRequestMetadata = {
 	status: AgentRunStatus;
 	startedAt?: string;
 	completedAt?: string;
+	provider?: 'openai' | 'anthropic';
+	framework?: 'native' | 'ai-sdk' | 'langchain' | 'custom';
+	model?: string;
+	credentialId?: string;
+	runMode?: 'browser' | 'tool_agent';
+	tools?: string[];
+	approvalPolicy?: 'risk_based' | 'always' | 'never';
+	maxSteps?: number;
+	temperature?: number;
+	systemPrompt?: string;
 	openaiResponseId?: string;
 	pendingApproval?: PendingApproval;
 	stepCount?: number;
@@ -52,6 +64,7 @@ export type RunMetadata = {
 
 export type SnapshotPayload = {
 	run: RunRow;
+	spans: SpanRow[];
 	events: EventRow[];
 	artifacts: ArtifactRow[];
 	evaluation: typeof evaluations.$inferSelect | undefined;
@@ -61,6 +74,7 @@ export type SnapshotPayload = {
 export type StreamEvent =
 	| { type: 'snapshot'; data: SnapshotPayload }
 	| { type: 'run'; data: RunRow }
+	| { type: 'span'; data: SpanRow }
 	| { type: 'event'; data: EventRow }
 	| { type: 'artifact'; data: ArtifactRow }
 	| { type: 'approval_required'; data: PendingApproval }

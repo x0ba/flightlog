@@ -12,6 +12,7 @@ import { publicId } from '$lib/server/public-id';
 type RunStatus = (typeof runStatusEnum.enumValues)[number];
 
 export async function createRun(input: {
+	schemaVersion?: string;
 	name?: string;
 	goal: string;
 	agentName?: string;
@@ -23,6 +24,7 @@ export async function createRun(input: {
 		.insert(runs)
 		.values({
 			publicId: publicId('run'),
+			schemaVersion: input.schemaVersion,
 			name: input.name,
 			goal: input.goal,
 			agentName: input.agentName,

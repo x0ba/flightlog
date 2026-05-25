@@ -7,10 +7,12 @@ import { createArtifact, listArtifacts } from '$lib/server/artifacts';
 import { appendEvent, listEvents } from '$lib/server/events';
 import { evaluateRun } from '$lib/server/evaluation/service';
 import { findRun, patchRunMetadata, updateRun } from '$lib/server/runs';
+import { listSpans } from '$lib/server/traces';
 import { createBrowserSession, hasBrowserbaseConfig } from './browser';
 import { needsApproval, resolveApproval, waitForApproval } from './approval';
 import { continueComputerResponse, createInitialComputerResponse, hasOpenAiKey } from './openai';
 import { publishRunEvent } from './stream';
+import { runToolAgent } from './tool-agent';
 import type {
 	AgentRequestMetadata,
 	ApprovalDecision,
@@ -30,19 +32,44 @@ export async function createAgentRun(input: {
 	prompt: string;
 	name?: string;
 	constraints?: string[];
+	runMode?: 'browser' | 'tool_agent';
+	provider?: 'openai' | 'anthropic';
+	framework?: 'native' | 'ai-sdk' | 'langchain' | 'custom';
+	model?: string;
+	credentialId?: string;
+	tools?: string[];
+	approvalPolicy?: 'risk_based' | 'always' | 'never';
+	maxSteps?: number;
+	temperature?: number;
+	systemPrompt?: string;
 }) {
 	const { createRun } = await import('$lib/server/runs');
+	const runMode = input.runMode ?? 'tool_agent';
+	const provider = input.provider ?? 'openai';
+	const model =
+		input.model ||
+		(runMode === 'browser' ? env.OPENAI_AGENT_MODEL || 'computer-use-preview' : undefined);
 	const run = await createRun({
 		goal: input.prompt,
 		name: input.name || titleFromPrompt(input.prompt),
-		agentName: 'OpenAI computer-use',
-		agentVersion: env.OPENAI_AGENT_MODEL || 'computer-use-preview',
-		environment: 'Browserbase Chromium',
+		agentName: runMode === 'browser' ? 'OpenAI computer-use' : `${provider} tool agent`,
+		agentVersion: model,
+		environment: runMode === 'browser' ? 'Browserbase Chromium' : 'Curated tools',
 		metadata: {
 			agentRequest: {
 				prompt: input.prompt,
 				constraints: input.constraints ?? [],
-				status: 'queued'
+				status: 'queued',
+				provider,
+				framework: input.framework ?? 'native',
+				model,
+				credentialId: input.credentialId,
+				runMode,
+				tools: input.tools ?? [],
+				approvalPolicy: input.approvalPolicy ?? 'risk_based',
+				maxSteps: input.maxSteps,
+				temperature: input.temperature,
+				systemPrompt: input.systemPrompt
 			}
 		} satisfies RunMetadata
 	});
@@ -60,6 +87,7 @@ export async function getRunSnapshot(publicRunId: string): Promise<SnapshotPaylo
 	const run = await findRun(publicRunId);
 	if (!run) return undefined;
 	const events = await listEvents(run.id);
+	const spans = await listSpans(run.id);
 	const artifactRows = await listArtifacts(run.id);
 	const eventSequenceById = new Map(events.map((event) => [event.id, event.sequence]));
 	const artifactsWithSequence = artifactRows.map((artifact) => ({
@@ -78,7 +106,7 @@ export async function getRunSnapshot(publicRunId: string): Promise<SnapshotPaylo
 				.from(evaluationFindings)
 				.where(eq(evaluationFindings.evaluationId, evaluation.id))
 		: [];
-	return { run, events, artifacts: artifactsWithSequence, evaluation, findings };
+	return { run, spans, events, artifacts: artifactsWithSequence, evaluation, findings };
 }
 
 export async function maybeStartAgentRun(publicRunId: string) {
@@ -111,6 +139,38 @@ async function runAgent(publicRunId: string) {
 	const initialRun = await findRun(publicRunId);
 	const initialAgentRequest = readAgentRequest(initialRun?.metadata);
 	if (!initialRun || !initialAgentRequest) return;
+
+	if (initialAgentRequest.runMode === 'tool_agent') {
+		try {
+			await setAgentMetadata(publicRunId, {
+				...initialAgentRequest,
+				status: 'running',
+				startedAt: new Date().toISOString()
+			});
+			const runningRun = await findRun(publicRunId);
+			if (runningRun) {
+				publishRunEvent(publicRunId, { type: 'run', data: runningRun });
+				await runToolAgent({
+					run: {
+						id: runningRun.id,
+						publicId: runningRun.publicId,
+						goal: runningRun.goal,
+						metadata: runningRun.metadata
+					},
+					request: {
+						...initialAgentRequest,
+						status: 'running',
+						startedAt: new Date().toISOString()
+					},
+					credentialId: initialAgentRequest.credentialId ?? ''
+				});
+			}
+		} catch (cause) {
+			const message = cause instanceof Error ? cause.message : 'Unknown tool agent error';
+			await failRun(publicRunId, message);
+		}
+		return;
+	}
 
 	if (!hasOpenAiKey()) {
 		await failRun(publicRunId, 'OPENAI_API_KEY is not set');
