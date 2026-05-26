@@ -7,7 +7,7 @@ import {
 } from '$lib/server/regression/runs';
 import { deleteGithubInstallation, upsertGithubInstallation } from '$lib/server/regression/suites';
 import { getGithubApp, isGithubAppConfigured } from './app';
-import { createRegressionCheckRun } from './checks';
+import { CHECK_NAME, createRegressionCheckRun } from './checks';
 
 type PullRequestPayload = {
 	action: string;
@@ -34,6 +34,7 @@ type CheckRunPayload = {
 	action: 'rerequested';
 	check_run: {
 		head_sha: string;
+		name: string;
 		external_id?: string;
 	};
 	repository: {
@@ -108,6 +109,7 @@ export function registerGithubWebhookHandlers() {
 	githubApp.webhooks.on('check_run', async ({ payload }) => {
 		const event = payload as CheckRunPayload;
 		if (event.action !== 'rerequested') return;
+		if (event.check_run.name !== CHECK_NAME) return;
 		const installationId = event.installation?.id;
 		if (!installationId) return;
 
