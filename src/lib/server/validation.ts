@@ -213,7 +213,8 @@ export const startRegressionRunSchema = z.object({
 	githubSha: z.string().min(1).optional(),
 	githubRef: z.string().min(1).optional(),
 	pullRequestNumber: z.number().int().positive().optional(),
-	metadata: jsonValue.optional()
+	metadata: jsonValue.optional(),
+	executionMode: z.enum(['automated', 'external']).optional().default('automated')
 });
 
 export const completeRegressionCaseRunSchema = z.object({

@@ -21,6 +21,10 @@ export function notFound(message = 'Not found'): never {
 	throw error(404, { message });
 }
 
+export function conflict(message = 'Conflict'): never {
+	throw error(409, { message });
+}
+
 export async function requireRunForUser(publicRunId: string, ownerUserId: string, message: string) {
 	const run = await findRunForUser(publicRunId, ownerUserId);
 	if (!run) notFound(message);

@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import {
 	evaluationFindings,
@@ -16,6 +16,8 @@ import { publicId } from '$lib/server/public-id';
 import { aggregateSuiteResult, evaluateCaseResult, parseConstraints, parsePolicy } from './policy';
 import { findRegressionSuiteByRepository, findRegressionSuiteForUser } from './suites';
 import type { EvaluationPolicy } from './policy';
+
+type RegressionSuiteForUser = NonNullable<Awaited<ReturnType<typeof findRegressionSuiteForUser>>>;
 
 const activeRegressionRuns = new Set<number>();
 
@@ -57,7 +59,7 @@ async function waitForRunCompletion(publicRunId: string, timeoutMs = 600_000) {
 }
 
 export async function createRegressionRun(
-	suitePublicId: string,
+	suite: RegressionSuiteForUser,
 	ownerUserId: string,
 	input: {
 		githubOwner?: string;
@@ -69,9 +71,6 @@ export async function createRegressionRun(
 		metadata?: unknown;
 	}
 ) {
-	const suite = await findRegressionSuiteForUser(suitePublicId, ownerUserId);
-	if (!suite) return undefined;
-
 	const enabledCases = suite.cases.filter((testCase) => testCase.enabled);
 	const [regressionRun] = await db
 		.insert(regressionRuns)
@@ -337,6 +336,51 @@ async function executeRegressionCase(input: {
 	};
 }
 
+async function finalizeRegressionRunIfComplete(regressionRunId: number) {
+	await db.execute(sql`
+		WITH case_stats AS (
+			SELECT
+				COUNT(*) FILTER (WHERE passed IS NOT NULL) AS completed_count,
+				BOOL_AND(passed) FILTER (WHERE passed IS NOT NULL) AS all_passed,
+				ROUND(AVG(score) FILTER (WHERE score IS NOT NULL))::int AS avg_score,
+				COUNT(*) FILTER (WHERE passed IS NOT NULL AND passed = false) AS failed_count
+			FROM regression_case_runs
+			WHERE regression_run_id = ${regressionRunId}
+		)
+		UPDATE regression_runs AS r
+		SET
+			status = CASE
+				WHEN cs.completed_count = 0 THEN 'failed'::regression_run_status
+				WHEN cs.all_passed THEN 'success'::regression_run_status
+				ELSE 'failed'::regression_run_status
+			END,
+			passed = CASE
+				WHEN cs.completed_count = 0 THEN false
+				ELSE COALESCE(cs.all_passed, false)
+			END,
+			aggregate_score = cs.avg_score,
+			summary = CASE
+				WHEN cs.completed_count = 0 THEN 'No regression cases completed.'
+				WHEN cs.all_passed THEN
+					'All ' || cs.completed_count::text || ' regression case(s) passed.'
+				ELSE
+					cs.failed_count::text || ' of ' || cs.completed_count::text ||
+					' regression case(s) failed.'
+			END,
+			completed_at = NOW(),
+			updated_at = NOW()
+		FROM case_stats AS cs
+		WHERE r.id = ${regressionRunId}
+			AND r.status IN ('pending', 'running')
+			AND NOT EXISTS (
+				SELECT 1
+				FROM regression_case_runs AS c
+				WHERE c.regression_run_id = ${regressionRunId}
+					AND c.status IN ('pending', 'running')
+			)
+	`);
+}
+
 export async function completeRegressionCaseRun(input: {
 	regressionRunPublicId: string;
 	casePublicId: string;
@@ -345,29 +389,91 @@ export async function completeRegressionCaseRun(input: {
 	constraints?: string[];
 }) {
 	const detail = await findRegressionRunForUser(input.regressionRunPublicId, input.ownerUserId);
-	if (!detail) return undefined;
+	if (!detail) return { status: 'not_found' as const };
 
 	if (
 		detail.regressionRun.status === 'cancelled' ||
 		detail.regressionRun.status === 'success' ||
 		detail.regressionRun.status === 'failed'
 	) {
-		return undefined;
+		return { status: 'not_found' as const };
 	}
 
 	const caseRun = detail.caseRuns.find((row) => row.testCase.publicId === input.casePublicId);
-	if (!caseRun) return undefined;
+	if (!caseRun) return { status: 'not_found' as const };
+
+	if (caseRun.status === 'running') return { status: 'in_progress' as const };
+
 	if (caseRun.status === 'success' || caseRun.status === 'failed' || caseRun.status === 'skipped') {
-		return undefined;
+		if (!caseRun.evaluationId) return { status: 'not_found' as const };
+
+		const [existingEvaluation] = await db
+			.select()
+			.from(evaluations)
+			.where(eq(evaluations.id, caseRun.evaluationId))
+			.limit(1);
+		if (!existingEvaluation) return { status: 'not_found' as const };
+
+		const { updateRegressionCheckRun } = await import('$lib/server/github/checks');
+		await updateRegressionCheckRun(detail.regressionRun.id).catch(() => undefined);
+
+		return {
+			status: 'completed' as const,
+			caseResult: {
+				passed: caseRun.passed ?? false,
+				reason: caseRun.failureReason ?? undefined
+			},
+			evaluation: existingEvaluation
+		};
 	}
 
 	const run = await findRun(input.runPublicId);
-	if (!run || run.ownerUserId !== input.ownerUserId) return undefined;
+	if (!run || run.ownerUserId !== input.ownerUserId) return { status: 'not_found' as const };
+
+	if (detail.regressionRun.status === 'pending') {
+		const updated = await db
+			.update(regressionRuns)
+			.set({
+				status: 'running',
+				startedAt: detail.regressionRun.startedAt ?? new Date(),
+				updatedAt: new Date()
+			})
+			.where(
+				and(eq(regressionRuns.id, detail.regressionRun.id), eq(regressionRuns.status, 'pending'))
+			);
+
+		if (updated.rowCount) {
+			const { updateRegressionCheckRun } = await import('$lib/server/github/checks');
+			await updateRegressionCheckRun(detail.regressionRun.id).catch(() => undefined);
+		}
+	}
+
+	const claimedCaseRun = await db
+		.update(regressionCaseRuns)
+		.set({
+			status: 'running',
+			startedAt: caseRun.startedAt ?? new Date(),
+			updatedAt: new Date()
+		})
+		.where(and(eq(regressionCaseRuns.id, caseRun.id), eq(regressionCaseRuns.status, 'pending')));
+
+	if (!claimedCaseRun.rowCount) return { status: 'in_progress' as const };
 
 	const constraints = input.constraints ?? parseConstraints(caseRun.testCase.constraints);
 
 	const evaluation = await evaluateRun(run.publicId, input.ownerUserId, constraints);
-	if (!evaluation) return undefined;
+	if (!evaluation) {
+		await db
+			.update(regressionCaseRuns)
+			.set({
+				status: 'pending',
+				startedAt: null,
+				updatedAt: new Date()
+			})
+			.where(and(eq(regressionCaseRuns.id, caseRun.id), eq(regressionCaseRuns.status, 'running')));
+
+		return { status: 'not_found' as const };
+	}
 
 	const findings = await db
 		.select()
@@ -399,33 +505,16 @@ export async function completeRegressionCaseRun(input: {
 		})
 		.where(eq(regressionCaseRuns.id, caseRun.id));
 
-	const updatedCaseRuns = await db
-		.select()
-		.from(regressionCaseRuns)
-		.where(eq(regressionCaseRuns.regressionRunId, detail.regressionRun.id));
-
-	const allDone = updatedCaseRuns.every(
-		(row) => row.status !== 'pending' && row.status !== 'running'
-	);
-	if (allDone) {
-		const aggregate = aggregateSuiteResult(updatedCaseRuns);
-		await db
-			.update(regressionRuns)
-			.set({
-				status: aggregate.passed ? 'success' : 'failed',
-				passed: aggregate.passed,
-				aggregateScore: aggregate.aggregateScore,
-				summary: aggregate.summary,
-				completedAt: new Date(),
-				updatedAt: new Date()
-			})
-			.where(eq(regressionRuns.id, detail.regressionRun.id));
-	}
+	await finalizeRegressionRunIfComplete(detail.regressionRun.id);
 
 	const { updateRegressionCheckRun } = await import('$lib/server/github/checks');
 	await updateRegressionCheckRun(detail.regressionRun.id).catch(() => undefined);
 
-	return { caseResult, evaluation };
+	return {
+		status: 'completed' as const,
+		caseResult,
+		evaluation
+	};
 }
 
 export async function findRegressionRunForUser(publicRunId: string, ownerUserId: string) {

@@ -39,6 +39,84 @@ export class FlightLogClient {
 		return new FlightLogTrace(this, response.trace.id);
 	}
 
+	async createRegressionSuite(input: {
+		name: string;
+		description?: string;
+		repositoryOwner: string;
+		repositoryName: string;
+		evaluationPolicy?: {
+			minScore?: number;
+			allowConstraintViolations?: boolean;
+			allowErrorFindings?: boolean;
+		};
+	}) {
+		const response = await this.request<{ suite: { id: string; name: string } }>(
+			'/api/regression/suites',
+			{ method: 'POST', body: input }
+		);
+		return response.suite;
+	}
+
+	async addRegressionCase(
+		suiteId: string,
+		input: {
+			name: string;
+			goal: string;
+			constraints?: string[];
+			expectedBehavior?: string;
+			minScore?: number;
+			agentConfig?: unknown;
+		}
+	) {
+		const response = await this.request<{ case: { id: string; name: string } }>(
+			`/api/regression/suites/${suiteId}`,
+			{ method: 'POST', body: input }
+		);
+		return response.case;
+	}
+
+	async startRegressionRun(
+		suiteId: string,
+		input: {
+			githubSha?: string;
+			githubRef?: string;
+			pullRequestNumber?: number;
+			metadata?: unknown;
+		} = {}
+	) {
+		const response = await this.request<{ run: { id: string; status: string; pageUrl: string } }>(
+			`/api/regression/suites/${suiteId}/runs`,
+			{
+				method: 'POST',
+				body: {
+					...input,
+					executionMode: 'external'
+				}
+			}
+		);
+		return response.run;
+	}
+
+	async finishRegressionCase(
+		regressionRunId: string,
+		caseId: string,
+		input: { runId: string; constraints?: string[] }
+	) {
+		return this.request<{
+			passed: boolean;
+			reason?: string;
+			evaluation: {
+				id: string;
+				score: number;
+				status: string;
+				summary: string | null;
+			};
+		}>(`/api/regression/runs/${regressionRunId}/cases/${caseId}/complete`, {
+			method: 'POST',
+			body: input
+		});
+	}
+
 	async request<T>(path: string, init: { method: string; body?: unknown }) {
 		const response = await fetch(`${this.endpoint}${path}`, {
 			method: init.method,
@@ -114,7 +192,7 @@ export class FlightLogRun {
 	}
 
 	evaluate(input: { constraints?: string[] } = {}) {
-		return this.client.request<{ evaluation: { id: string; status: string } }>(
+		return this.client.request<{ evaluation: { id: string; status: string; score?: number } }>(
 			`/api/runs/${this.id}/evaluate`,
 			{ method: 'POST', body: input }
 		);
@@ -202,6 +280,13 @@ export class FlightLogTrace {
 		return this.client.request<{ trace: { id: string; status: RunStatus } }>(
 			`/api/v1/traces/${this.id}`,
 			{ method: 'PATCH', body: input }
+		);
+	}
+
+	evaluate(input: { constraints?: string[] } = {}) {
+		return this.client.request<{ evaluation: { id: string; status: string; score?: number } }>(
+			`/api/runs/${this.id}/evaluate`,
+			{ method: 'POST', body: input }
 		);
 	}
 
