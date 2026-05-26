@@ -1,4 +1,5 @@
 import { error, json, type RequestEvent } from '@sveltejs/kit';
+import { findRunForUser } from '$lib/server/runs';
 import { ZodError, type ZodType } from 'zod';
 
 export async function parseJson<T>(event: RequestEvent, schema: ZodType<T>) {
@@ -18,4 +19,10 @@ export function ok<T>(body: T, init?: ResponseInit) {
 
 export function notFound(message = 'Not found'): never {
 	throw error(404, { message });
+}
+
+export async function requireRunForUser(publicRunId: string, ownerUserId: string, message: string) {
+	const run = await findRunForUser(publicRunId, ownerUserId);
+	if (!run) notFound(message);
+	return run;
 }

@@ -4,14 +4,13 @@ import { artifacts, evaluationFindings, evaluations } from '$lib/server/db/schem
 import { listEvents } from '$lib/server/events';
 import { publishRunEvent } from '$lib/server/agent-runner/stream';
 import { requireUserId } from '$lib/server/auth';
-import { ok, parseJson, notFound } from '$lib/server/http';
-import { findRunForUser, updateRunForUser } from '$lib/server/runs';
+import { ok, parseJson, notFound, requireRunForUser } from '$lib/server/http';
+import { updateRunForUser } from '$lib/server/runs';
 import { updateRunSchema } from '$lib/server/validation';
 
 export async function GET(event) {
 	const userId = requireUserId(event);
-	const run = await findRunForUser(event.params.id, userId);
-	if (!run) notFound('Run not found');
+	const run = await requireRunForUser(event.params.id, userId, 'Run not found');
 	const events = await listEvents(run.id);
 	const artifactRows = await db.select().from(artifacts).where(eq(artifacts.runId, run.id));
 	const [evaluation] = await db
