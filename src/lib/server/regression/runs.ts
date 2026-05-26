@@ -19,6 +19,8 @@ import type { EvaluationPolicy } from './policy';
 
 const activeRegressionRuns = new Set<number>();
 
+type GithubCheckRunId = bigint | number | string;
+
 type AgentConfig = {
 	runMode?: 'browser' | 'tool_agent';
 	provider?: 'openai' | 'anthropic';
@@ -35,6 +37,10 @@ type AgentConfig = {
 function parseAgentConfig(value: unknown): AgentConfig {
 	if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
 	return value as AgentConfig;
+}
+
+function parseGithubCheckRunId(value: GithubCheckRunId | undefined) {
+	return value === undefined ? undefined : BigInt(value);
 }
 
 async function waitForRunCompletion(publicRunId: string, timeoutMs = 600_000) {
@@ -59,7 +65,7 @@ export async function createRegressionRun(
 		githubSha?: string;
 		githubRef?: string;
 		pullRequestNumber?: number;
-		githubCheckRunId?: number;
+		githubCheckRunId?: GithubCheckRunId;
 		metadata?: unknown;
 	}
 ) {
@@ -79,7 +85,7 @@ export async function createRegressionRun(
 			githubSha: input.githubSha,
 			githubRef: input.githubRef,
 			pullRequestNumber: input.pullRequestNumber,
-			githubCheckRunId: input.githubCheckRunId,
+			githubCheckRunId: parseGithubCheckRunId(input.githubCheckRunId),
 			metadata: input.metadata,
 			passed: enabledCases.length ? null : false,
 			summary: enabledCases.length ? null : 'Regression suite has no enabled cases.',
@@ -108,7 +114,7 @@ export async function createRegressionRunForRepository(input: {
 	githubSha: string;
 	githubRef?: string;
 	pullRequestNumber?: number;
-	githubCheckRunId?: number;
+	githubCheckRunId?: GithubCheckRunId;
 	ownerUserId?: string;
 	metadata?: unknown;
 }) {
@@ -128,7 +134,7 @@ export async function createRegressionRunForRepository(input: {
 			githubSha: input.githubSha,
 			githubRef: input.githubRef,
 			pullRequestNumber: input.pullRequestNumber,
-			githubCheckRunId: input.githubCheckRunId,
+			githubCheckRunId: parseGithubCheckRunId(input.githubCheckRunId),
 			metadata: input.metadata,
 			startedAt: enabledCases.length ? new Date() : null,
 			passed: enabledCases.length ? null : false,
