@@ -383,6 +383,20 @@ export async function completeRegressionCaseRun(input: {
 	const run = await findRun(input.runPublicId);
 	if (!run || run.ownerUserId !== input.ownerUserId) return { status: 'not_found' as const };
 
+	if (detail.regressionRun.status === 'pending') {
+		await db
+			.update(regressionRuns)
+			.set({
+				status: 'running',
+				startedAt: detail.regressionRun.startedAt ?? new Date(),
+				updatedAt: new Date()
+			})
+			.where(eq(regressionRuns.id, detail.regressionRun.id));
+
+		const { updateRegressionCheckRun } = await import('$lib/server/github/checks');
+		await updateRegressionCheckRun(detail.regressionRun.id).catch(() => undefined);
+	}
+
 	const constraints = input.constraints ?? parseConstraints(caseRun.testCase.constraints);
 
 	const evaluation = await evaluateRun(run.publicId, input.ownerUserId, constraints);
