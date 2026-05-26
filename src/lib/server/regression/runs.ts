@@ -343,21 +343,10 @@ async function executeRegressionCase(input: {
 }
 
 async function finalizeRegressionRunIfComplete(regressionRunId: number) {
-	const caseRuns = await db
-		.select()
-		.from(regressionCaseRuns)
-		.where(eq(regressionCaseRuns.regressionRunId, regressionRunId));
-
-	const aggregate = aggregateSuiteResult(caseRuns);
-
-	const [finalized] = await db
+	const [claimed] = await db
 		.update(regressionRuns)
 		.set({
-			status: aggregate.passed ? 'success' : 'failed',
-			passed: aggregate.passed,
-			aggregateScore: aggregate.aggregateScore,
-			summary: aggregate.summary,
-			completedAt: new Date(),
+			status: 'success',
 			updatedAt: new Date()
 		})
 		.where(
@@ -377,9 +366,28 @@ async function finalizeRegressionRunIfComplete(regressionRunId: number) {
 				)
 			)
 		)
-		.returning();
+		.returning({ id: regressionRuns.id });
 
-	return finalized;
+	if (!claimed) return;
+
+	const caseRuns = await db
+		.select()
+		.from(regressionCaseRuns)
+		.where(eq(regressionCaseRuns.regressionRunId, regressionRunId));
+
+	const aggregate = aggregateSuiteResult(caseRuns);
+
+	await db
+		.update(regressionRuns)
+		.set({
+			status: aggregate.passed ? 'success' : 'failed',
+			passed: aggregate.passed,
+			aggregateScore: aggregate.aggregateScore,
+			summary: aggregate.summary,
+			completedAt: new Date(),
+			updatedAt: new Date()
+		})
+		.where(eq(regressionRuns.id, regressionRunId));
 }
 
 export async function completeRegressionCaseRun(input: {
