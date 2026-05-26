@@ -197,7 +197,9 @@
 		</header>
 
 		<!-- Metrics bar -->
-		<div class="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border sm:grid-cols-4">
+		<div
+			class="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border sm:grid-cols-4"
+		>
 			<div class="flex items-center gap-3 bg-card px-4 py-3 transition-colors hover:bg-card/80">
 				<div class="h-8 w-0.5 rounded-full bg-status-running"></div>
 				<div>
@@ -283,7 +285,9 @@
 							</div>
 
 							<div class="grid gap-3">
-								<div class="grid grid-cols-2 gap-1 rounded-lg border border-border bg-background p-1">
+								<div
+									class="grid grid-cols-2 gap-1 rounded-lg border border-border bg-background p-1"
+								>
 									<button
 										type="button"
 										class="rounded-md px-3 py-2 font-mono text-xs transition-colors {runMode ===
@@ -311,7 +315,9 @@
 										<Select.Root
 											type="single"
 											value={provider}
-											onValueChange={(v) => { if (v) provider = v as typeof provider; }}
+											onValueChange={(v) => {
+												if (v) provider = v as typeof provider;
+											}}
 											disabled={runMode === 'browser'}
 										>
 											<Select.Trigger class="w-full font-mono">
@@ -328,10 +334,18 @@
 										<Select.Root
 											type="single"
 											value={framework}
-											onValueChange={(v) => { if (v) framework = v as typeof framework; }}
+											onValueChange={(v) => {
+												if (v) framework = v as typeof framework;
+											}}
 										>
 											<Select.Trigger class="w-full font-mono">
-												{framework === 'native' ? 'Native' : framework === 'ai-sdk' ? 'AI SDK' : framework === 'langchain' ? 'LangChain' : 'Custom'}
+												{framework === 'native'
+													? 'Native'
+													: framework === 'ai-sdk'
+														? 'AI SDK'
+														: framework === 'langchain'
+															? 'LangChain'
+															: 'Custom'}
 											</Select.Trigger>
 											<Select.Content>
 												<Select.Item value="native" label="Native">Native</Select.Item>
@@ -346,7 +360,9 @@
 										<Select.Root
 											type="single"
 											value={model}
-											onValueChange={(v) => { if (v) model = v; }}
+											onValueChange={(v) => {
+												if (v) model = v;
+											}}
 										>
 											<Select.Trigger class="w-full font-mono">
 												{model || 'Select model'}
@@ -373,7 +389,9 @@
 									<Select.Root
 										type="single"
 										value={credentialId}
-										onValueChange={(v) => { if (v) credentialId = v; }}
+										onValueChange={(v) => {
+											if (v) credentialId = v;
+										}}
 									>
 										<Select.Trigger class="w-full font-mono">
 											{#if credentialId}
@@ -385,7 +403,10 @@
 										</Select.Trigger>
 										<Select.Content>
 											{#each credentials.filter((credential) => credential.provider === provider && credential.isEnabled) as credential (credential.id)}
-												<Select.Item value={credential.id} label="{credential.label} · {credential.keyPreview}">
+												<Select.Item
+													value={credential.id}
+													label="{credential.label} · {credential.keyPreview}"
+												>
 													{credential.label} · {credential.keyPreview}
 												</Select.Item>
 											{/each}
@@ -417,10 +438,16 @@
 									<Select.Root
 										type="single"
 										value={approvalPolicy}
-										onValueChange={(v) => { if (v) approvalPolicy = v as typeof approvalPolicy; }}
+										onValueChange={(v) => {
+											if (v) approvalPolicy = v as typeof approvalPolicy;
+										}}
 									>
 										<Select.Trigger class="w-full font-mono">
-											{approvalPolicy === 'risk_based' ? 'Risk based' : approvalPolicy === 'always' ? 'Always ask' : 'Never ask'}
+											{approvalPolicy === 'risk_based'
+												? 'Risk based'
+												: approvalPolicy === 'always'
+													? 'Always ask'
+													: 'Never ask'}
 										</Select.Trigger>
 										<Select.Content>
 											<Select.Item value="risk_based" label="Risk based">Risk based</Select.Item>
@@ -486,9 +513,7 @@
 										</div>
 									{/each}
 								{:else}
-									<div
-										class="flex items-center gap-3 rounded-md bg-secondary/30 p-3"
-									>
+									<div class="flex items-center gap-3 rounded-md bg-secondary/30 p-3">
 										<KeyRound class="size-4 shrink-0 text-muted-foreground/50" />
 										<p class="font-mono text-xs text-muted-foreground">
 											Add an OpenAI or Anthropic key to launch dashboard-run agents.
@@ -501,7 +526,9 @@
 									<Select.Root
 										type="single"
 										value={credentialProvider}
-										onValueChange={(v) => { if (v) credentialProvider = v as typeof credentialProvider; }}
+										onValueChange={(v) => {
+											if (v) credentialProvider = v as typeof credentialProvider;
+										}}
 									>
 										<Select.Trigger class="w-full font-mono">
 											{credentialProvider === 'openai' ? 'OpenAI' : 'Anthropic'}
@@ -556,7 +583,9 @@
 					</Table.Header>
 					<Table.Body>
 						{#each data.runs as run (run.id)}
-							<Table.Row class="group border-border transition-colors duration-150 hover:bg-secondary/40">
+							<Table.Row
+								class="group border-border transition-colors duration-150 hover:bg-secondary/40"
+							>
 								<Table.Cell>
 									<a
 										class="text-sm font-medium text-foreground transition-colors hover:text-primary"

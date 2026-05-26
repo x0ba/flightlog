@@ -73,7 +73,11 @@
 		{@const Icon = iconFor(event.type)}
 		{@const isSelected = selectedSequence === event.sequence}
 		{@const isExpanded = expandedEvents.has(event.publicId)}
-		<div class="group relative flex gap-3 py-1 pl-0 transition-colors duration-150 hover:bg-secondary/20 {isSelected ? 'bg-secondary/30' : ''}">
+		<div
+			class="group relative flex gap-3 py-1 pl-0 transition-colors duration-150 hover:bg-secondary/20 {isSelected
+				? 'bg-secondary/30'
+				: ''}"
+		>
 			<!-- Dot / icon on the line -->
 			<div
 				class="relative z-10 flex size-[23px] shrink-0 items-center justify-center bg-background"

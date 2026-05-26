@@ -6,7 +6,7 @@
 	import { Separator } from '$lib/components/ui/separator';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import * as Collapsible from '$lib/components/ui/collapsible';
-	import { Check, X, ChevronDown } from '@lucide/svelte';
+	import { Check, X, ChevronDown, LoaderCircle } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 
 	let { data } = $props();
@@ -24,6 +24,7 @@
 		readPendingApproval(initialData.run.metadata)
 	);
 	let approvalSubmitting = $state(false);
+	let evaluating = $state(false);
 	let infoOpen = $state(true);
 	let configOpen = $state(true);
 	let timingOpen = $state(false);
@@ -132,12 +133,18 @@
 	let agentMetadata = $derived(readAgentMetadata(run.metadata));
 
 	async function evaluateRun() {
-		await fetch(`/api/runs/${run.publicId}/evaluate`, {
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ constraints: [] })
-		});
-		location.reload();
+		if (evaluating) return;
+		evaluating = true;
+		try {
+			await fetch(`/api/runs/${run.publicId}/evaluate`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ constraints: [] })
+			});
+			location.reload();
+		} finally {
+			evaluating = false;
+		}
 	}
 
 	function formatDate(value: string | Date | null) {
@@ -489,11 +496,20 @@
 				</Collapsible.Root>
 
 				<Button
-					class="w-full font-mono text-xs"
+					class="w-full gap-2 font-mono text-xs"
 					variant="outline"
 					type="button"
-					onclick={evaluateRun}>Evaluate</Button
+					disabled={evaluating}
+					aria-busy={evaluating}
+					onclick={evaluateRun}
 				>
+					{#if evaluating}
+						<LoaderCircle class="size-3.5 animate-spin" />
+						Evaluating
+					{:else}
+						Evaluate
+					{/if}
+				</Button>
 			</aside>
 
 			{#if pendingApproval}
@@ -657,11 +673,23 @@
 					<div class="flex items-center justify-between border-b border-border px-4 py-2.5">
 						<span class="font-mono text-xs font-medium">Evaluation</span>
 						<span class="font-mono text-[10px] text-muted-foreground"
-							>{evaluation?.status ?? 'not evaluated'}</span
+							>{evaluating ? 'running' : (evaluation?.status ?? 'not evaluated')}</span
 						>
 					</div>
 					<div class="p-4">
-						{#if evaluation}
+						{#if evaluating}
+							<div
+								class="flex items-center gap-3 rounded-md border border-status-running/60 bg-status-running/10 p-3"
+							>
+								<LoaderCircle class="size-4 shrink-0 animate-spin text-status-running" />
+								<div class="min-w-0">
+									<p class="font-mono text-xs font-medium">Evaluation running</p>
+									<p class="text-xs text-muted-foreground">
+										Scoring the run and checking constraints.
+									</p>
+								</div>
+							</div>
+						{:else if evaluation}
 							<Tabs.Root value="summary">
 								<Tabs.List>
 									<Tabs.Trigger value="summary" class="font-mono text-xs">Summary</Tabs.Trigger>
