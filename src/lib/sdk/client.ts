@@ -90,8 +90,8 @@ export class FlightLogClient {
 			{
 				method: 'POST',
 				body: {
-					executionMode: 'external',
-					...input
+					...input,
+					executionMode: 'external'
 				}
 			}
 		);
