@@ -119,11 +119,9 @@ export async function maybeStartAgentRun(publicRunId: string) {
 	return true;
 }
 
-export async function decideApproval(publicRunId: string, decision: ApprovalDecision) {
-	const run = await findRun(publicRunId);
-	if (!run) return undefined;
-	const accepted = resolveApproval(publicRunId, decision);
-	const row = await appendAndPublish(run.id, publicRunId, {
+export async function decideApproval(run: RunRow, decision: ApprovalDecision) {
+	const accepted = resolveApproval(run.publicId, decision);
+	const row = await appendAndPublish(run.id, run.publicId, {
 		type: 'human_approval',
 		title: decision.decision === 'approved' ? 'Action approved' : 'Action rejected',
 		message: decision.note,
@@ -131,7 +129,7 @@ export async function decideApproval(publicRunId: string, decision: ApprovalDeci
 		data: decision
 	});
 	if (!accepted && decision.decision === 'rejected') {
-		await cancelRun(publicRunId, 'Approval rejected after the runner stopped waiting.');
+		await cancelRun(run.publicId, 'Approval rejected after the runner stopped waiting.');
 	}
 	return row;
 }

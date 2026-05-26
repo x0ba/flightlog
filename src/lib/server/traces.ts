@@ -1,13 +1,14 @@
 import { and, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { spans, type spanStatusEnum } from '$lib/server/db/schema';
+import { runs, spans, type spanStatusEnum } from '$lib/server/db/schema';
 import { appendEvent } from '$lib/server/events';
 import { publicId } from '$lib/server/public-id';
-import { createRun, findRun, updateRun } from '$lib/server/runs';
+import { createRun, updateRun } from '$lib/server/runs';
 import type { createSpanSchema, createTraceSchema, updateSpanSchema } from '$lib/server/validation';
 import type { z } from 'zod';
 
 type SpanStatus = (typeof spanStatusEnum.enumValues)[number];
+type RunRow = typeof runs.$inferSelect;
 type CreateTraceInput = z.infer<typeof createTraceSchema>;
 type CreateSpanInput = z.infer<typeof createSpanSchema>;
 type UpdateSpanInput = z.infer<typeof updateSpanSchema>;
@@ -35,22 +36,20 @@ export async function createTrace(ownerUserId: string, input: CreateTraceInput) 
 }
 
 export async function finishTrace(
-	publicTraceId: string,
+	trace: RunRow,
 	input: { status: 'success' | 'failed' | 'cancelled'; metadata?: unknown }
 ) {
-	const trace = await updateRun(publicTraceId, input);
-	if (!trace) return undefined;
-	await appendEvent(trace.id, {
+	const updated = await updateRun(trace.publicId, input);
+	if (!updated) return undefined;
+	await appendEvent(updated.id, {
 		type: input.status === 'success' ? 'trace.completed' : 'trace.failed',
 		status: input.status === 'success' ? 'success' : 'failed',
 		data: { status: input.status }
 	});
-	return trace;
+	return updated;
 }
 
-export async function createSpan(publicTraceId: string, input: CreateSpanInput) {
-	const trace = await findRun(publicTraceId);
-	if (!trace) return undefined;
+export async function createSpanForRun(trace: RunRow, input: CreateSpanInput) {
 	const parentSpan = input.parentSpanId
 		? await findSpanByPublicId(input.parentSpanId, trace.id)
 		: undefined;
@@ -84,13 +83,11 @@ export async function createSpan(publicTraceId: string, input: CreateSpanInput) 
 	return span;
 }
 
-export async function updateSpan(
-	publicTraceId: string,
+export async function updateSpanForRun(
+	trace: RunRow,
 	publicSpanId: string,
 	input: UpdateSpanInput
 ) {
-	const trace = await findRun(publicTraceId);
-	if (!trace) return undefined;
 	const existing = await findSpanByPublicId(publicSpanId, trace.id);
 	if (!existing || existing.runId !== trace.id) return undefined;
 	const [span] = await db
