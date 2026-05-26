@@ -1,11 +1,13 @@
 import { appendEvents } from '$lib/server/events';
+import { requireUserId } from '$lib/server/auth';
 import { ok, parseJson, notFound } from '$lib/server/http';
-import { findRun } from '$lib/server/runs';
+import { findRunForUser } from '$lib/server/runs';
 import { batchEventsSchema } from '$lib/server/validation';
 
 export async function POST(event) {
+	const userId = requireUserId(event);
 	const input = await parseJson(event, batchEventsSchema);
-	const trace = await findRun(event.params.id);
+	const trace = await findRunForUser(event.params.id, userId);
 	if (!trace) notFound('Trace not found');
 	const events = await appendEvents(trace.id, input.events);
 	return ok(

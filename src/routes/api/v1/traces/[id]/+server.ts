@@ -2,13 +2,15 @@ import { desc, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { artifacts, evaluationFindings, evaluations } from '$lib/server/db/schema';
 import { listEvents } from '$lib/server/events';
+import { requireUserId } from '$lib/server/auth';
 import { ok, parseJson, notFound } from '$lib/server/http';
-import { findRun } from '$lib/server/runs';
+import { findRunForUser } from '$lib/server/runs';
 import { finishTrace, listSpans } from '$lib/server/traces';
 import { updateTraceSchema } from '$lib/server/validation';
 
-export async function GET({ params }) {
-	const trace = await findRun(params.id);
+export async function GET(event) {
+	const userId = requireUserId(event);
+	const trace = await findRunForUser(event.params.id, userId);
 	if (!trace) notFound('Trace not found');
 	const events = await listEvents(trace.id);
 	const spans = await listSpans(trace.id);
@@ -29,6 +31,9 @@ export async function GET({ params }) {
 }
 
 export async function PATCH(event) {
+	const userId = requireUserId(event);
+	const existing = await findRunForUser(event.params.id, userId);
+	if (!existing) notFound('Trace not found');
 	const input = await parseJson(event, updateTraceSchema);
 	const trace = await finishTrace(event.params.id, {
 		status: input.status === 'running' ? 'success' : input.status,
