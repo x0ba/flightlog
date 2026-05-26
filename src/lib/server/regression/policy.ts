@@ -73,8 +73,22 @@ export function evaluateCaseResult(input: CaseEvaluationInput, policy: Evaluatio
 }
 
 export function aggregateSuiteResult(
-	caseResults: Array<{ passed: boolean | null; score: number | null }>
+	caseResults: Array<{ passed: boolean | null; score: number | null; status?: string }>
 ) {
+	const incomplete = caseResults.filter(
+		(result) =>
+			result.status === 'pending' ||
+			result.status === 'running' ||
+			(result.status === undefined && result.passed === null)
+	);
+	if (incomplete.length) {
+		return {
+			passed: false,
+			aggregateScore: null,
+			summary: `${incomplete.length} regression case(s) did not complete.`
+		};
+	}
+
 	const completed = caseResults.filter((result) => result.passed !== null);
 	if (!completed.length) {
 		return { passed: false, aggregateScore: null, summary: 'No regression cases completed.' };

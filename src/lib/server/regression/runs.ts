@@ -211,7 +211,7 @@ export async function executeRegressionRun(regressionRunId: number) {
 	const { updateRegressionCheckRun } = await import('$lib/server/github/checks');
 
 	for (const { caseRun, testCase } of caseRuns) {
-		if (caseRun.status !== 'pending') continue;
+		if (caseRun.status !== 'pending' && caseRun.status !== 'running') continue;
 
 		await db
 			.update(regressionCaseRuns)
