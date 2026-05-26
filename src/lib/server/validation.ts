@@ -168,3 +168,61 @@ export const updateProviderCredentialSchema = z.object({
 	apiKey: z.string().min(1).optional(),
 	isEnabled: z.boolean().optional()
 });
+
+export const evaluationPolicySchema = z.object({
+	minScore: z.number().int().min(0).max(100).default(70),
+	allowConstraintViolations: z.boolean().default(false),
+	allowErrorFindings: z.boolean().default(false)
+});
+
+export const agentConfigSchema = z.object({
+	runMode: runModeSchema.default('tool_agent'),
+	provider: providerSchema.default('openai'),
+	framework: agentFrameworkSchema.default('native'),
+	model: z.string().min(1).optional(),
+	credentialId: z.string().min(1).optional(),
+	tools: z.array(z.string().min(1)).optional().default([]),
+	approvalPolicy: approvalPolicySchema.default('risk_based'),
+	maxSteps: z.number().int().min(1).max(100).optional(),
+	temperature: z.number().min(0).max(2).optional(),
+	systemPrompt: z.string().optional()
+});
+
+export const createRegressionSuiteSchema = z.object({
+	name: z.string().min(1),
+	description: z.string().optional(),
+	repositoryOwner: z.string().min(1),
+	repositoryName: z.string().min(1),
+	githubInstallationId: z.number().int().positive().optional(),
+	enabled: z.boolean().optional().default(true),
+	evaluationPolicy: evaluationPolicySchema.optional()
+});
+
+export const createRegressionCaseSchema = z.object({
+	name: z.string().min(1),
+	goal: z.string().min(1),
+	constraints: z.array(z.string().min(1)).optional().default([]),
+	expectedBehavior: z.string().optional(),
+	agentConfig: agentConfigSchema.optional(),
+	minScore: z.number().int().min(0).max(100).optional().default(70),
+	sortOrder: z.number().int().min(0).optional().default(0),
+	enabled: z.boolean().optional().default(true)
+});
+
+export const startRegressionRunSchema = z.object({
+	githubSha: z.string().min(1).optional(),
+	githubRef: z.string().min(1).optional(),
+	pullRequestNumber: z.number().int().positive().optional(),
+	metadata: jsonValue.optional()
+});
+
+export const completeRegressionCaseRunSchema = z.object({
+	runId: z.string().min(1),
+	constraints: z.array(z.string().min(1)).optional()
+});
+
+export const linkGithubInstallationSchema = z.object({
+	installationId: z.number().int().positive(),
+	accountLogin: z.string().min(1),
+	accountType: z.string().min(1)
+});

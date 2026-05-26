@@ -270,3 +270,141 @@ export const evaluationFindings = pgTable('evaluation_findings', {
 		.notNull()
 		.default(sql`CURRENT_TIMESTAMP`)
 });
+
+export const regressionRunStatusEnum = pgEnum('regression_run_status', [
+	'pending',
+	'running',
+	'success',
+	'failed',
+	'cancelled'
+]);
+
+export const regressionCaseRunStatusEnum = pgEnum('regression_case_run_status', [
+	'pending',
+	'running',
+	'success',
+	'failed',
+	'skipped'
+]);
+
+export const githubInstallations = pgTable(
+	'github_installations',
+	{
+		id: serial('id').primaryKey(),
+		publicId: text('public_id').notNull().unique(),
+		installationId: integer('installation_id').notNull(),
+		accountLogin: text('account_login').notNull(),
+		accountType: text('account_type').notNull(),
+		ownerUserId: text('owner_user_id'),
+		metadata: jsonb('metadata'),
+		createdAt: timestamp('created_at')
+			.notNull()
+			.default(sql`CURRENT_TIMESTAMP`),
+		updatedAt: timestamp('updated_at')
+			.notNull()
+			.default(sql`CURRENT_TIMESTAMP`)
+	},
+	(table) => [uniqueIndex('github_installations_installation_id_idx').on(table.installationId)]
+);
+
+export const regressionSuites = pgTable('regression_suites', {
+	id: serial('id').primaryKey(),
+	publicId: text('public_id').notNull().unique(),
+	ownerUserId: text('owner_user_id').notNull(),
+	githubInstallationId: integer('github_installation_id').references(() => githubInstallations.id, {
+		onDelete: 'set null'
+	}),
+	name: text('name').notNull(),
+	description: text('description'),
+	repositoryOwner: text('repository_owner').notNull(),
+	repositoryName: text('repository_name').notNull(),
+	enabled: boolean('enabled').notNull().default(true),
+	evaluationPolicy: jsonb('evaluation_policy')
+		.notNull()
+		.default(
+			sql`'{"minScore":70,"allowConstraintViolations":false,"allowErrorFindings":false}'::jsonb`
+		),
+	createdAt: timestamp('created_at')
+		.notNull()
+		.default(sql`CURRENT_TIMESTAMP`),
+	updatedAt: timestamp('updated_at')
+		.notNull()
+		.default(sql`CURRENT_TIMESTAMP`)
+});
+
+export const regressionCases = pgTable('regression_cases', {
+	id: serial('id').primaryKey(),
+	publicId: text('public_id').notNull().unique(),
+	suiteId: integer('suite_id')
+		.notNull()
+		.references(() => regressionSuites.id, { onDelete: 'cascade' }),
+	name: text('name').notNull(),
+	goal: text('goal').notNull(),
+	constraints: jsonb('constraints')
+		.notNull()
+		.default(sql`'[]'::jsonb`),
+	expectedBehavior: text('expected_behavior'),
+	agentConfig: jsonb('agent_config'),
+	minScore: integer('min_score').notNull().default(70),
+	sortOrder: integer('sort_order').notNull().default(0),
+	enabled: boolean('enabled').notNull().default(true),
+	createdAt: timestamp('created_at')
+		.notNull()
+		.default(sql`CURRENT_TIMESTAMP`),
+	updatedAt: timestamp('updated_at')
+		.notNull()
+		.default(sql`CURRENT_TIMESTAMP`)
+});
+
+export const regressionRuns = pgTable('regression_runs', {
+	id: serial('id').primaryKey(),
+	publicId: text('public_id').notNull().unique(),
+	suiteId: integer('suite_id')
+		.notNull()
+		.references(() => regressionSuites.id, { onDelete: 'cascade' }),
+	ownerUserId: text('owner_user_id'),
+	status: regressionRunStatusEnum('status').notNull().default('pending'),
+	githubOwner: text('github_owner'),
+	githubRepo: text('github_repo'),
+	githubSha: text('github_sha'),
+	githubRef: text('github_ref'),
+	pullRequestNumber: integer('pull_request_number'),
+	githubCheckRunId: integer('github_check_run_id'),
+	aggregateScore: integer('aggregate_score'),
+	passed: boolean('passed'),
+	summary: text('summary'),
+	metadata: jsonb('metadata'),
+	startedAt: timestamp('started_at'),
+	completedAt: timestamp('completed_at'),
+	createdAt: timestamp('created_at')
+		.notNull()
+		.default(sql`CURRENT_TIMESTAMP`),
+	updatedAt: timestamp('updated_at')
+		.notNull()
+		.default(sql`CURRENT_TIMESTAMP`)
+});
+
+export const regressionCaseRuns = pgTable('regression_case_runs', {
+	id: serial('id').primaryKey(),
+	publicId: text('public_id').notNull().unique(),
+	regressionRunId: integer('regression_run_id')
+		.notNull()
+		.references(() => regressionRuns.id, { onDelete: 'cascade' }),
+	caseId: integer('case_id')
+		.notNull()
+		.references(() => regressionCases.id, { onDelete: 'cascade' }),
+	runId: integer('run_id').references(() => runs.id, { onDelete: 'set null' }),
+	evaluationId: integer('evaluation_id').references(() => evaluations.id, { onDelete: 'set null' }),
+	status: regressionCaseRunStatusEnum('status').notNull().default('pending'),
+	score: integer('score'),
+	passed: boolean('passed'),
+	failureReason: text('failure_reason'),
+	startedAt: timestamp('started_at'),
+	completedAt: timestamp('completed_at'),
+	createdAt: timestamp('created_at')
+		.notNull()
+		.default(sql`CURRENT_TIMESTAMP`),
+	updatedAt: timestamp('updated_at')
+		.notNull()
+		.default(sql`CURRENT_TIMESTAMP`)
+});
