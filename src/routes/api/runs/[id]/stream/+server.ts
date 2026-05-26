@@ -9,8 +9,7 @@ export async function GET(event) {
 	const { params, request } = event;
 	const run = await findRunForUser(params.id, userId);
 	if (!run) error(404, 'Run not found');
-	const snapshot = await getRunSnapshot(params.id);
-	if (!snapshot) error(404, 'Run not found');
+	const snapshot = await getRunSnapshot(run);
 
 	const encoder = new TextEncoder();
 	const stream = new ReadableStream<Uint8Array>({

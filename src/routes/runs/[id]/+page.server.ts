@@ -7,8 +7,6 @@ export async function load(event) {
 	const userId = requireUserId(event);
 	const ownedRun = await findRunForUser(event.params.id, userId);
 	if (!ownedRun) error(404, 'Run not found');
-	const { params } = event;
-	const snapshot = await getRunSnapshot(params.id);
-	if (!snapshot) error(404, 'Run not found');
+	const snapshot = await getRunSnapshot(ownedRun);
 	return snapshot;
 }

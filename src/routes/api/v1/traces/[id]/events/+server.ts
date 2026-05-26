@@ -6,9 +6,9 @@ import { findRunForUser } from '$lib/server/runs';
 
 export async function POST(event) {
 	const userId = requireUserId(event);
-	const input = await parseJson(event, appendEventSchema);
 	const trace = await findRunForUser(event.params.id, userId);
 	if (!trace) notFound('Trace not found');
+	const input = await parseJson(event, appendEventSchema);
 	const loggedEvent = await appendEvent(trace.id, input);
 	return ok(
 		{ event: { id: loggedEvent.publicId, sequence: loggedEvent.sequence } },

@@ -6,9 +6,9 @@ import { batchEventsSchema } from '$lib/server/validation';
 
 export async function POST(event) {
 	const userId = requireUserId(event);
-	const input = await parseJson(event, batchEventsSchema);
 	const trace = await findRunForUser(event.params.id, userId);
 	if (!trace) notFound('Trace not found');
+	const input = await parseJson(event, batchEventsSchema);
 	const events = await appendEvents(trace.id, input.events);
 	return ok(
 		{
