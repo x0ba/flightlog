@@ -103,6 +103,7 @@ export const findingCategoryEnum = pgEnum('finding_category', [
 export const runs = pgTable('runs', {
 	id: serial('id').primaryKey(),
 	publicId: text('public_id').notNull().unique(),
+	ownerUserId: text('owner_user_id'),
 	schemaVersion: text('schema_version').notNull().default('flightlog.run.v0'),
 	name: text('name'),
 	goal: text('goal').notNull(),
@@ -126,6 +127,7 @@ export const runs = pgTable('runs', {
 export const providerCredentials = pgTable('provider_credentials', {
 	id: serial('id').primaryKey(),
 	publicId: text('public_id').notNull().unique(),
+	ownerUserId: text('owner_user_id'),
 	provider: providerEnum('provider').notNull(),
 	label: text('label').notNull(),
 	encryptedApiKey: text('encrypted_api_key').notNull(),
@@ -142,6 +144,7 @@ export const providerCredentials = pgTable('provider_credentials', {
 export const agentRunConfigs = pgTable('agent_run_configs', {
 	id: serial('id').primaryKey(),
 	publicId: text('public_id').notNull().unique(),
+	ownerUserId: text('owner_user_id'),
 	name: text('name').notNull(),
 	provider: providerEnum('provider').notNull(),
 	framework: agentFrameworkEnum('framework').notNull().default('native'),
