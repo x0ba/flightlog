@@ -117,27 +117,30 @@ export async function createRegressionRunForRepository(input: {
 	githubCheckRunId?: GithubCheckRunId;
 	ownerUserId?: string;
 	metadata?: unknown;
+	forceNewRun?: boolean;
 }) {
 	const suite = await findRegressionSuiteByRepository(input.repositoryOwner, input.repositoryName);
 	if (!suite) return undefined;
 
-	const [existingRun] = await db
-		.select()
-		.from(regressionRuns)
-		.where(
-			and(
-				eq(regressionRuns.suiteId, suite.id),
-				eq(regressionRuns.githubOwner, input.repositoryOwner),
-				eq(regressionRuns.githubRepo, input.repositoryName),
-				eq(regressionRuns.githubSha, input.githubSha),
-				input.pullRequestNumber === undefined
-					? undefined
-					: eq(regressionRuns.pullRequestNumber, input.pullRequestNumber)
+	if (!input.forceNewRun) {
+		const [existingRun] = await db
+			.select()
+			.from(regressionRuns)
+			.where(
+				and(
+					eq(regressionRuns.suiteId, suite.id),
+					eq(regressionRuns.githubOwner, input.repositoryOwner),
+					eq(regressionRuns.githubRepo, input.repositoryName),
+					eq(regressionRuns.githubSha, input.githubSha),
+					input.pullRequestNumber === undefined
+						? undefined
+						: eq(regressionRuns.pullRequestNumber, input.pullRequestNumber)
+				)
 			)
-		)
-		.orderBy(desc(regressionRuns.createdAt))
-		.limit(1);
-	if (existingRun) return { regressionRun: existingRun, suite };
+			.orderBy(desc(regressionRuns.createdAt))
+			.limit(1);
+		if (existingRun) return { regressionRun: existingRun, suite };
+	}
 
 	const enabledCases = suite.cases.filter((testCase) => testCase.enabled);
 	const [regressionRun] = await db

@@ -115,7 +115,8 @@ export function registerGithubWebhookHandlers() {
 			installationId,
 			repositoryOwner: event.repository.owner.login,
 			repositoryName: event.repository.name,
-			githubSha: event.check_run.head_sha
+			githubSha: event.check_run.head_sha,
+			forceNewRun: true
 		});
 	});
 }
@@ -127,6 +128,7 @@ async function startGithubRegressionRun(input: {
 	githubSha: string;
 	githubRef?: string;
 	pullRequestNumber?: number;
+	forceNewRun?: boolean;
 }) {
 	const created = await createRegressionRunForRepository({
 		repositoryOwner: input.repositoryOwner,
@@ -134,6 +136,7 @@ async function startGithubRegressionRun(input: {
 		githubSha: input.githubSha,
 		githubRef: input.githubRef,
 		pullRequestNumber: input.pullRequestNumber,
+		forceNewRun: input.forceNewRun,
 		metadata: { installationId: input.installationId, source: 'github' }
 	});
 	if (!created) return;
