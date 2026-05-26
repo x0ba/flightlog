@@ -30,9 +30,9 @@ export async function GET(event) {
 
 export async function PATCH(event) {
 	const userId = requireUserId(event);
-	await requireRunForUser(event.params.id, userId, 'Trace not found');
+	const existing = await requireRunForUser(event.params.id, userId, 'Trace not found');
 	const input = await parseJson(event, updateTraceSchema);
-	const trace = await finishTrace(event.params.id, userId, {
+	const trace = await finishTrace(existing, {
 		status: input.status === 'running' ? 'success' : input.status,
 		metadata: input.metadata
 	});

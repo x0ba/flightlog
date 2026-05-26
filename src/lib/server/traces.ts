@@ -3,7 +3,7 @@ import { db } from '$lib/server/db';
 import { runs, spans, type spanStatusEnum } from '$lib/server/db/schema';
 import { appendEvent } from '$lib/server/events';
 import { publicId } from '$lib/server/public-id';
-import { createRun, updateRunForUser } from '$lib/server/runs';
+import { createRun, updateRun } from '$lib/server/runs';
 import type { createSpanSchema, createTraceSchema, updateSpanSchema } from '$lib/server/validation';
 import type { z } from 'zod';
 
@@ -36,18 +36,17 @@ export async function createTrace(ownerUserId: string, input: CreateTraceInput) 
 }
 
 export async function finishTrace(
-	publicTraceId: string,
-	ownerUserId: string,
+	trace: RunRow,
 	input: { status: 'success' | 'failed' | 'cancelled'; metadata?: unknown }
 ) {
-	const trace = await updateRunForUser(publicTraceId, ownerUserId, input);
-	if (!trace) return undefined;
-	await appendEvent(trace.id, {
+	const updated = await updateRun(trace.publicId, input);
+	if (!updated) return undefined;
+	await appendEvent(updated.id, {
 		type: input.status === 'success' ? 'trace.completed' : 'trace.failed',
 		status: input.status === 'success' ? 'success' : 'failed',
 		data: { status: input.status }
 	});
-	return trace;
+	return updated;
 }
 
 export async function createSpanForRun(trace: RunRow, input: CreateSpanInput) {
