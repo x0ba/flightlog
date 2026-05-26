@@ -13,7 +13,7 @@
 	<section class="flex w-full max-w-md flex-col items-center gap-6">
 		<div class="text-center">
 			<p class="font-mono text-xs tracking-wider text-muted-foreground uppercase">
-				AgentOps Flight Recorder
+				Agent Observability and CI Regression
 			</p>
 			<h1 class="mt-2 text-2xl font-semibold text-foreground">Sign in to FlightLog</h1>
 		</div>
