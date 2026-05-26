@@ -18,6 +18,8 @@ Required environment:
 ```sh
 DATABASE_URL=
 FLIGHTLOG_KEYS_SECRET=
+PUBLIC_CLERK_PUBLISHABLE_KEY=
+CLERK_SECRET_KEY=
 ```
 
 Optional LLM evaluation environment:
@@ -33,7 +35,9 @@ FLIGHTLOG_AGENT_APPROVAL_TIMEOUT_SECONDS=300
 ```
 
 `FLIGHTLOG_KEYS_SECRET` is required when saving or using dashboard-entered provider API keys. The
-dashboard stores only encrypted provider keys and returns masked previews to the browser.
+dashboard stores only encrypted provider keys and returns masked previews to the browser. Clerk is
+required for dashboard access and API ingestion. Existing unowned local runs and provider
+credentials remain unowned until they are assigned through an explicit backfill.
 
 If `OPENAI_API_KEY` is missing, evaluations still run with deterministic rule checks. Browser-mode
 UI agent runs require `OPENAI_API_KEY` and `BROWSERBASE_API_KEY` because they use OpenAI computer use
@@ -42,9 +46,9 @@ encrypted OpenAI or Anthropic credential selected in the UI.
 
 ## UI Agent Runs
 
-Open `/runs`, save an OpenAI or Anthropic provider key, choose a run mode, provider, framework,
-model, and tools, then start a run. FlightLog creates a run, opens the run detail page, and streams
-events and spans live over Server-Sent Events.
+Sign in with Clerk, open `/runs`, save an OpenAI or Anthropic provider key, choose a run mode,
+provider, framework, model, and tools, then start a run. FlightLog creates a user-owned run, opens
+the run detail page, and streams events and spans live over Server-Sent Events.
 
 Tool-agent runs use a curated local tool registry:
 
@@ -89,6 +93,7 @@ Create a run:
 ```sh
 curl -X POST http://localhost:5173/api/runs \
   -H 'content-type: application/json' \
+  -H 'authorization: Bearer CLERK_TOKEN' \
   -d '{"goal":"Find product pricing without buying anything","name":"Pricing check"}'
 ```
 
@@ -97,6 +102,7 @@ Append an event:
 ```sh
 curl -X POST http://localhost:5173/api/runs/run_id/events \
   -H 'content-type: application/json' \
+  -H 'authorization: Bearer CLERK_TOKEN' \
   -d '{"type":"tool_call","message":"Search pricing page","data":{"tool":"browser.search","input":{"query":"pricing"}}}'
 ```
 
@@ -105,6 +111,7 @@ Attach an artifact:
 ```sh
 curl -X POST http://localhost:5173/api/runs/run_id/artifacts \
   -H 'content-type: application/json' \
+  -H 'authorization: Bearer CLERK_TOKEN' \
   -d '{"type":"text","name":"observation","content":"Pricing page loaded"}'
 ```
 
@@ -113,10 +120,12 @@ Finish and evaluate:
 ```sh
 curl -X PATCH http://localhost:5173/api/runs/run_id \
   -H 'content-type: application/json' \
+  -H 'authorization: Bearer CLERK_TOKEN' \
   -d '{"status":"success"}'
 
 curl -X POST http://localhost:5173/api/runs/run_id/evaluate \
   -H 'content-type: application/json' \
+  -H 'authorization: Bearer CLERK_TOKEN' \
   -d '{"constraints":["Do not place a real order"]}'
 ```
 
@@ -125,7 +134,10 @@ curl -X POST http://localhost:5173/api/runs/run_id/evaluate \
 ```ts
 import { FlightLogClient } from '$lib/sdk/client';
 
-const flightlog = new FlightLogClient({ endpoint: 'http://localhost:5173' });
+const flightlog = new FlightLogClient({
+	endpoint: 'http://localhost:5173',
+	apiKey: clerkToken
+});
 const run = await flightlog.startRun({
 	goal: 'Find product pricing without buying anything',
 	name: 'Pricing check',
@@ -147,7 +159,10 @@ first-class for replay, but represents model calls and tool calls as spans with 
 ```ts
 import { FlightLogClient, openAIAttributes } from '$lib';
 
-const flightlog = new FlightLogClient({ endpoint: 'http://localhost:5173' });
+const flightlog = new FlightLogClient({
+	endpoint: 'http://localhost:5173',
+	apiKey: clerkToken
+});
 const trace = await flightlog.startTrace({
 	goal: 'Look up the customer and draft a refund response',
 	name: 'Refund agent',
@@ -204,8 +219,7 @@ await trace.logModelCall({
 
 ## MVP Limitations
 
-- No auth or organizations; saved provider keys are installation-wide.
-- No organizations or projects.
+- No organizations or projects; isolation is per Clerk user.
 - Artifacts are stored in Postgres as text, URLs, or data URLs.
 - Replay is timeline-based, not a true browser session replay.
 - LLM evaluation is optional.
