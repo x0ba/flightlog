@@ -1,5 +1,10 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import SignIn from 'clerk-sveltekit/client/SignIn.svelte';
+
+	const redirectUrl = $derived(
+		page.url.searchParams.get('redirect_url') ?? page.url.searchParams.get('redirectUrl') ?? '/runs'
+	);
 </script>
 
 <svelte:head><title>Sign in | FlightLog</title></svelte:head>
@@ -12,6 +17,6 @@
 			</p>
 			<h1 class="mt-2 text-2xl font-semibold text-foreground">Sign in to FlightLog</h1>
 		</div>
-		<SignIn redirectUrl="/runs" signUpUrl="/sign-up" />
+		<SignIn {redirectUrl} signUpUrl="/sign-up" />
 	</section>
 </main>

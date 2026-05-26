@@ -1,9 +1,6 @@
 import { env } from '$env/dynamic/private';
 import { verifyToken } from '@clerk/backend';
 import { error, redirect, type RequestEvent } from '@sveltejs/kit';
-import { isNull } from 'drizzle-orm';
-import { db } from '$lib/server/db';
-import { agentRunConfigs, providerCredentials, runs } from '$lib/server/db/schema';
 
 export function readUserId(event: RequestEvent) {
 	return event.locals.auth?.userId ?? event.locals.session?.userId;
@@ -23,23 +20,12 @@ export async function authenticateBearer(event: RequestEvent) {
 	try {
 		const claims = await verifyToken(token, {
 			secretKey: env.CLERK_SECRET_KEY,
-			issuer: (issuer) => issuer.startsWith('https://clerk.') || issuer.includes('.clerk.accounts')
+			issuer: (issuer) => issuer.startsWith('https://clerk.') && issuer.includes('.clerk.accounts')
 		});
 		event.locals.auth = { userId: claims.sub, claims };
 	} catch {
 		// Invalid bearer tokens fall through to the normal protected-route 401.
 	}
-}
-
-export async function claimLegacyRows(ownerUserId: string) {
-	await Promise.all([
-		db.update(runs).set({ ownerUserId }).where(isNull(runs.ownerUserId)),
-		db
-			.update(providerCredentials)
-			.set({ ownerUserId })
-			.where(isNull(providerCredentials.ownerUserId)),
-		db.update(agentRunConfigs).set({ ownerUserId }).where(isNull(agentRunConfigs.ownerUserId))
-	]);
 }
 
 export function isProtectedPath(pathname: string) {
@@ -59,5 +45,6 @@ export function guardProtectedPath(event: RequestEvent) {
 	if (event.url.pathname.startsWith('/api/')) {
 		throw error(401, { message: 'Authentication required' });
 	}
-	throw redirect(303, `/sign-in?redirectUrl=${encodeURIComponent(event.url.pathname)}`);
+	const target = `${event.url.pathname}${event.url.search}`;
+	throw redirect(303, `/sign-in?redirect_url=${encodeURIComponent(target)}`);
 }
