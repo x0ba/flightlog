@@ -7,6 +7,10 @@ import { getInstallationOctokit, isGithubAppConfigured } from './app';
 
 const CHECK_NAME = 'FlightLog Agent Regression';
 
+function escapeMarkdownTableCell(value: string) {
+	return value.replace(/\|/g, '\\|');
+}
+
 function dashboardUrl(path: string) {
 	const base = publicEnv.PUBLIC_APP_URL ?? env.VERCEL_URL;
 	if (!base) return path;
@@ -42,8 +46,10 @@ function buildCheckOutput(input: {
 				: caseRun.passed
 					? 'passed'
 					: `failed${caseRun.failureReason ? `: ${caseRun.failureReason}` : ''}`;
+		const safeName = escapeMarkdownTableCell(caseRun.testCaseName);
+		const safeResult = escapeMarkdownTableCell(result);
 		lines.push(
-			`| ${caseRun.testCaseName} | ${caseRun.score ?? '—'} | ${result}${caseRun.runPublicId ? ` ([trace](/runs/${caseRun.runPublicId}))` : ''} |`
+			`| ${safeName} | ${caseRun.score ?? '—'} | ${safeResult}${caseRun.runPublicId ? ` ([trace](${dashboardUrl(`/runs/${caseRun.runPublicId}`)}))` : ''} |`
 		);
 	}
 
@@ -83,7 +89,7 @@ export async function createRegressionCheckRun(input: {
 		details_url: dashboardUrl(`/regression/runs/${input.regressionRunPublicId}`)
 	});
 
-	return response.data.id;
+	return BigInt(response.data.id);
 }
 
 export async function updateRegressionCheckRun(regressionRunId: number) {
@@ -134,14 +140,26 @@ export async function updateRegressionCheckRun(regressionRunId: number) {
 	});
 
 	const octokit = await getInstallationOctokit(installationId);
-	const isComplete = regressionRun.status === 'success' || regressionRun.status === 'failed';
+	const isComplete =
+		regressionRun.status === 'success' ||
+		regressionRun.status === 'failed' ||
+		regressionRun.status === 'cancelled';
+	const conclusion = isComplete
+		? regressionRun.status === 'cancelled'
+			? 'cancelled'
+			: regressionRun.passed === true
+				? 'success'
+				: regressionRun.passed === false
+					? 'failure'
+					: 'neutral'
+		: undefined;
 
 	await octokit.rest.checks.update({
 		owner: regressionRun.githubOwner,
 		repo: regressionRun.githubRepo,
-		check_run_id: regressionRun.githubCheckRunId,
+		check_run_id: Number(regressionRun.githubCheckRunId),
 		status: isComplete ? 'completed' : 'in_progress',
-		conclusion: isComplete ? (regressionRun.passed ? 'success' : 'failure') : undefined,
+		conclusion,
 		completed_at: isComplete ? new Date().toISOString() : undefined,
 		output,
 		details_url: dashboardUrl(`/regression/runs/${regressionRun.publicId}`)
