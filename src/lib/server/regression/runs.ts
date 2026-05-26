@@ -355,7 +355,9 @@ export async function completeRegressionCaseRun(input: {
 	const caseRun = detail.caseRuns.find((row) => row.testCase.publicId === input.casePublicId);
 	if (!caseRun) return undefined;
 
-	if (caseRun.status !== 'pending' && caseRun.status !== 'running') {
+	if (caseRun.status === 'running') return undefined;
+
+	if (caseRun.status === 'success' || caseRun.status === 'failed' || caseRun.status === 'skipped') {
 		if (!caseRun.evaluationId) return undefined;
 
 		const [existingEvaluation] = await db

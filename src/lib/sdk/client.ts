@@ -82,11 +82,18 @@ export class FlightLogClient {
 			githubRef?: string;
 			pullRequestNumber?: number;
 			metadata?: unknown;
+			executionMode?: 'automated' | 'external';
 		} = {}
 	) {
 		const response = await this.request<{ run: { id: string; status: string; pageUrl: string } }>(
 			`/api/regression/suites/${suiteId}/runs`,
-			{ method: 'POST', body: input }
+			{
+				method: 'POST',
+				body: {
+					executionMode: 'external',
+					...input
+				}
+			}
 		);
 		return response.run;
 	}

@@ -20,7 +20,9 @@ export async function POST(event) {
 	});
 	if (!regressionRun) notFound('Regression run could not be created');
 
-	scheduleRegressionRun(regressionRun.id);
+	if (input.executionMode === 'automated') {
+		scheduleRegressionRun(regressionRun.id);
+	}
 
 	const pageUrl = new URL(
 		`/regression/runs/${regressionRun.publicId}`,
