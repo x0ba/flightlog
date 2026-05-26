@@ -166,34 +166,42 @@
 				</div>
 				<div>
 					<h1 class="font-mono text-sm font-semibold tracking-wider uppercase">FlightLog</h1>
-					<p class="text-xs text-muted-foreground">AgentOps Flight Recorder</p>
+					<p class="text-xs text-muted-foreground">Agent Observability and CI Regression</p>
 				</div>
 			</div>
-			<form class="flex items-center gap-2" method="get">
-				<div class="relative">
-					<Search
-						class="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
-					/>
-					<Input
-						class="h-8 w-48 pl-8 font-mono text-xs"
-						name="q"
-						value={data.filters.q}
-						placeholder="Search runs…"
-					/>
-				</div>
-				<select
-					class="h-8 rounded-md border border-input bg-background px-2 font-mono text-xs text-foreground transition-colors hover:bg-secondary/50"
-					name="status"
-					value={data.filters.status ?? ''}
+			<div class="flex items-center gap-2">
+				<a
+					class="rounded-md border border-border px-3 py-1.5 font-mono text-xs transition-colors hover:bg-secondary"
+					href={resolve('/regression')}
 				>
-					<option value="">All</option>
-					<option value="running">Running</option>
-					<option value="success">Success</option>
-					<option value="failed">Failed</option>
-					<option value="cancelled">Cancelled</option>
-				</select>
-				<Button class="h-8 px-3 text-xs" type="submit">Filter</Button>
-			</form>
+					Regression
+				</a>
+				<form class="flex items-center gap-2" method="get">
+					<div class="relative">
+						<Search
+							class="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
+						/>
+						<Input
+							class="h-8 w-48 pl-8 font-mono text-xs"
+							name="q"
+							value={data.filters.q}
+							placeholder="Search runs…"
+						/>
+					</div>
+					<select
+						class="h-8 rounded-md border border-input bg-background px-2 font-mono text-xs text-foreground transition-colors hover:bg-secondary/50"
+						name="status"
+						value={data.filters.status ?? ''}
+					>
+						<option value="">All</option>
+						<option value="running">Running</option>
+						<option value="success">Success</option>
+						<option value="failed">Failed</option>
+						<option value="cancelled">Cancelled</option>
+					</select>
+					<Button class="h-8 px-3 text-xs" type="submit">Filter</Button>
+				</form>
+			</div>
 		</header>
 
 		<!-- Metrics bar -->
@@ -635,7 +643,8 @@
 					<div class="text-center">
 						<p class="text-sm font-medium">No runs yet</p>
 						<p class="mt-1 font-mono text-xs text-muted-foreground">
-							Create one with the ingest API or start a new agent run above.
+							Log agent traces with the ingest API, start a regression suite, or launch a new agent
+							run above.
 						</p>
 					</div>
 					<Separator class="max-w-sm" />
