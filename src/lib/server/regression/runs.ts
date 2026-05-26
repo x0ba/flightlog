@@ -462,7 +462,18 @@ export async function completeRegressionCaseRun(input: {
 	const constraints = input.constraints ?? parseConstraints(caseRun.testCase.constraints);
 
 	const evaluation = await evaluateRun(run.publicId, input.ownerUserId, constraints);
-	if (!evaluation) return { status: 'not_found' as const };
+	if (!evaluation) {
+		await db
+			.update(regressionCaseRuns)
+			.set({
+				status: 'pending',
+				startedAt: null,
+				updatedAt: new Date()
+			})
+			.where(and(eq(regressionCaseRuns.id, caseRun.id), eq(regressionCaseRuns.status, 'running')));
+
+		return { status: 'not_found' as const };
+	}
 
 	const findings = await db
 		.select()
