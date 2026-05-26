@@ -343,11 +343,7 @@ export async function completeRegressionCaseRun(input: {
 
 	const caseRun = detail.caseRuns.find((row) => row.testCase.publicId === input.casePublicId);
 	if (!caseRun) return undefined;
-	if (
-		caseRun.status === 'success' ||
-		caseRun.status === 'failed' ||
-		caseRun.status === 'skipped'
-	) {
+	if (caseRun.status === 'success' || caseRun.status === 'failed' || caseRun.status === 'skipped') {
 		return undefined;
 	}
 
@@ -411,6 +407,9 @@ export async function completeRegressionCaseRun(input: {
 			})
 			.where(eq(regressionRuns.id, detail.regressionRun.id));
 	}
+
+	const { updateRegressionCheckRun } = await import('$lib/server/github/checks');
+	await updateRegressionCheckRun(detail.regressionRun.id).catch(() => undefined);
 
 	return { caseResult, evaluation };
 }
