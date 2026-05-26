@@ -1,5 +1,6 @@
 import {
 	boolean,
+	bigint,
 	integer,
 	jsonb,
 	pgEnum,
@@ -369,7 +370,7 @@ export const regressionRuns = pgTable('regression_runs', {
 	githubSha: text('github_sha'),
 	githubRef: text('github_ref'),
 	pullRequestNumber: integer('pull_request_number'),
-	githubCheckRunId: integer('github_check_run_id'),
+	githubCheckRunId: bigint('github_check_run_id', { mode: 'bigint' }),
 	aggregateScore: integer('aggregate_score'),
 	passed: boolean('passed'),
 	summary: text('summary'),

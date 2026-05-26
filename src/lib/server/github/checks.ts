@@ -83,7 +83,7 @@ export async function createRegressionCheckRun(input: {
 		details_url: dashboardUrl(`/regression/runs/${input.regressionRunPublicId}`)
 	});
 
-	return response.data.id;
+	return BigInt(response.data.id);
 }
 
 export async function updateRegressionCheckRun(regressionRunId: number) {
@@ -139,7 +139,7 @@ export async function updateRegressionCheckRun(regressionRunId: number) {
 	await octokit.rest.checks.update({
 		owner: regressionRun.githubOwner,
 		repo: regressionRun.githubRepo,
-		check_run_id: regressionRun.githubCheckRunId,
+		check_run_id: Number(regressionRun.githubCheckRunId),
 		status: isComplete ? 'completed' : 'in_progress',
 		conclusion: isComplete ? (regressionRun.passed ? 'success' : 'failure') : undefined,
 		completed_at: isComplete ? new Date().toISOString() : undefined,

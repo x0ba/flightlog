@@ -13,11 +13,13 @@ import { createAgentRun, maybeStartAgentRun } from '$lib/server/agent-runner/ser
 import { evaluateRun } from '$lib/server/evaluation/service';
 import { findRun } from '$lib/server/runs';
 import { publicId } from '$lib/server/public-id';
-import { aggregateSuiteResult, evaluateCaseResult } from './policy';
+import { aggregateSuiteResult, evaluateCaseResult, parseConstraints, parsePolicy } from './policy';
 import { findRegressionSuiteByRepository, findRegressionSuiteForUser } from './suites';
 import type { EvaluationPolicy } from './policy';
 
 const activeRegressionRuns = new Set<number>();
+
+type GithubCheckRunId = bigint | number | string;
 
 type AgentConfig = {
 	runMode?: 'browser' | 'tool_agent';
@@ -37,21 +39,8 @@ function parseAgentConfig(value: unknown): AgentConfig {
 	return value as AgentConfig;
 }
 
-function parsePolicy(value: unknown): EvaluationPolicy {
-	if (!value || typeof value !== 'object' || Array.isArray(value)) {
-		return { minScore: 70, allowConstraintViolations: false, allowErrorFindings: false };
-	}
-	const policy = value as Partial<EvaluationPolicy>;
-	return {
-		minScore: typeof policy.minScore === 'number' ? policy.minScore : 70,
-		allowConstraintViolations: policy.allowConstraintViolations ?? false,
-		allowErrorFindings: policy.allowErrorFindings ?? false
-	};
-}
-
-function parseConstraints(value: unknown) {
-	if (!Array.isArray(value)) return [] as string[];
-	return value.filter((item): item is string => typeof item === 'string');
+function parseGithubCheckRunId(value: GithubCheckRunId | undefined) {
+	return value === undefined ? undefined : BigInt(value);
 }
 
 async function waitForRunCompletion(publicRunId: string, timeoutMs = 600_000) {
@@ -59,7 +48,9 @@ async function waitForRunCompletion(publicRunId: string, timeoutMs = 600_000) {
 	while (Date.now() - started < timeoutMs) {
 		const run = await findRun(publicRunId);
 		if (!run) throw new Error('Run not found');
-		if (run.status !== 'running') return run;
+		if (run.status === 'success' || run.status === 'failed' || run.status === 'cancelled') {
+			return run;
+		}
 		await new Promise((resolve) => setTimeout(resolve, 2000));
 	}
 	throw new Error('Agent run timed out');
@@ -74,7 +65,7 @@ export async function createRegressionRun(
 		githubSha?: string;
 		githubRef?: string;
 		pullRequestNumber?: number;
-		githubCheckRunId?: number;
+		githubCheckRunId?: GithubCheckRunId;
 		metadata?: unknown;
 	}
 ) {
@@ -94,7 +85,7 @@ export async function createRegressionRun(
 			githubSha: input.githubSha,
 			githubRef: input.githubRef,
 			pullRequestNumber: input.pullRequestNumber,
-			githubCheckRunId: input.githubCheckRunId,
+			githubCheckRunId: parseGithubCheckRunId(input.githubCheckRunId),
 			metadata: input.metadata,
 			passed: enabledCases.length ? null : false,
 			summary: enabledCases.length ? null : 'Regression suite has no enabled cases.',
@@ -123,7 +114,7 @@ export async function createRegressionRunForRepository(input: {
 	githubSha: string;
 	githubRef?: string;
 	pullRequestNumber?: number;
-	githubCheckRunId?: number;
+	githubCheckRunId?: GithubCheckRunId;
 	ownerUserId?: string;
 	metadata?: unknown;
 }) {
@@ -143,7 +134,7 @@ export async function createRegressionRunForRepository(input: {
 			githubSha: input.githubSha,
 			githubRef: input.githubRef,
 			pullRequestNumber: input.pullRequestNumber,
-			githubCheckRunId: input.githubCheckRunId,
+			githubCheckRunId: parseGithubCheckRunId(input.githubCheckRunId),
 			metadata: input.metadata,
 			startedAt: enabledCases.length ? new Date() : null,
 			passed: enabledCases.length ? null : false,
@@ -181,7 +172,12 @@ export async function executeRegressionRun(regressionRunId: number) {
 		.from(regressionRuns)
 		.where(eq(regressionRuns.id, regressionRunId))
 		.limit(1);
-	if (!regressionRun || regressionRun.status === 'success' || regressionRun.status === 'failed') {
+	if (
+		!regressionRun ||
+		regressionRun.status === 'success' ||
+		regressionRun.status === 'failed' ||
+		regressionRun.status === 'cancelled'
+	) {
 		return regressionRun;
 	}
 
@@ -305,7 +301,7 @@ async function executeRegressionCase(input: {
 		model: agentConfig.model,
 		credentialId: agentConfig.credentialId,
 		tools: agentConfig.tools,
-		approvalPolicy: agentConfig.approvalPolicy ?? 'never',
+		approvalPolicy: agentConfig.approvalPolicy ?? 'risk_based',
 		maxSteps: agentConfig.maxSteps,
 		temperature: agentConfig.temperature,
 		systemPrompt: input.testCase.expectedBehavior ?? agentConfig.systemPrompt
@@ -351,8 +347,19 @@ export async function completeRegressionCaseRun(input: {
 	const detail = await findRegressionRunForUser(input.regressionRunPublicId, input.ownerUserId);
 	if (!detail) return undefined;
 
+	if (
+		detail.regressionRun.status === 'cancelled' ||
+		detail.regressionRun.status === 'success' ||
+		detail.regressionRun.status === 'failed'
+	) {
+		return undefined;
+	}
+
 	const caseRun = detail.caseRuns.find((row) => row.testCase.publicId === input.casePublicId);
 	if (!caseRun) return undefined;
+	if (caseRun.status === 'success' || caseRun.status === 'failed' || caseRun.status === 'skipped') {
+		return undefined;
+	}
 
 	const run = await findRun(input.runPublicId);
 	if (!run || run.ownerUserId !== input.ownerUserId) return undefined;
@@ -414,6 +421,9 @@ export async function completeRegressionCaseRun(input: {
 			})
 			.where(eq(regressionRuns.id, detail.regressionRun.id));
 	}
+
+	const { updateRegressionCheckRun } = await import('$lib/server/github/checks');
+	await updateRegressionCheckRun(detail.regressionRun.id).catch(() => undefined);
 
 	return { caseResult, evaluation };
 }

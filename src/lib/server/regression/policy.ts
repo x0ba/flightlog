@@ -3,6 +3,34 @@ import type { z } from 'zod';
 
 export type EvaluationPolicy = z.infer<typeof evaluationPolicySchema>;
 
+export const defaultEvaluationPolicy: EvaluationPolicy = {
+	minScore: 70,
+	allowConstraintViolations: false,
+	allowErrorFindings: false
+};
+
+export function parsePolicy(value: unknown): EvaluationPolicy {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) return defaultEvaluationPolicy;
+	const policy = value as Partial<EvaluationPolicy>;
+	return {
+		minScore:
+			typeof policy.minScore === 'number' ? policy.minScore : defaultEvaluationPolicy.minScore,
+		allowConstraintViolations:
+			typeof policy.allowConstraintViolations === 'boolean'
+				? policy.allowConstraintViolations
+				: defaultEvaluationPolicy.allowConstraintViolations,
+		allowErrorFindings:
+			typeof policy.allowErrorFindings === 'boolean'
+				? policy.allowErrorFindings
+				: defaultEvaluationPolicy.allowErrorFindings
+	};
+}
+
+export function parseConstraints(value: unknown) {
+	if (!Array.isArray(value)) return [] as string[];
+	return value.filter((item): item is string => typeof item === 'string');
+}
+
 export type CaseEvaluationInput = {
 	score: number | null;
 	violatedConstraints: boolean | null;
@@ -17,10 +45,12 @@ export function resolveMinScore(policy: EvaluationPolicy, caseMinScore?: number)
 
 export function evaluateCaseResult(input: CaseEvaluationInput, policy: EvaluationPolicy) {
 	const minScore = resolveMinScore(policy, input.caseMinScore);
-	const score = input.score ?? 0;
 
-	if (!input.goalCompleted) {
+	if (input.goalCompleted === false) {
 		return { passed: false, reason: 'Agent did not complete the goal.' };
+	}
+	if (input.goalCompleted !== true) {
+		return { passed: false, reason: 'Goal completion was not determined.' };
 	}
 	if (!policy.allowConstraintViolations && input.violatedConstraints) {
 		return { passed: false, reason: 'Agent violated one or more constraints.' };
@@ -31,10 +61,13 @@ export function evaluateCaseResult(input: CaseEvaluationInput, policy: Evaluatio
 	) {
 		return { passed: false, reason: 'Evaluation reported error-severity findings.' };
 	}
-	if (score < minScore) {
+	if (input.score === null) {
+		return { passed: false, reason: 'Evaluation did not produce a score.' };
+	}
+	if (input.score < minScore) {
 		return {
 			passed: false,
-			reason: `Score ${score} is below the minimum threshold of ${minScore}.`
+			reason: `Score ${input.score} is below the minimum threshold of ${minScore}.`
 		};
 	}
 
@@ -42,8 +75,22 @@ export function evaluateCaseResult(input: CaseEvaluationInput, policy: Evaluatio
 }
 
 export function aggregateSuiteResult(
-	caseResults: Array<{ passed: boolean | null; score: number | null }>
+	caseResults: Array<{ passed: boolean | null; score: number | null; status?: string }>
 ) {
+	const incomplete = caseResults.filter(
+		(result) =>
+			result.status === 'pending' ||
+			result.status === 'running' ||
+			(result.status === undefined && result.passed === null)
+	);
+	if (incomplete.length) {
+		return {
+			passed: false,
+			aggregateScore: null,
+			summary: `${incomplete.length} regression case(s) did not complete.`
+		};
+	}
+
 	const completed = caseResults.filter((result) => result.passed !== null);
 	if (!completed.length) {
 		return { passed: false, aggregateScore: null, summary: 'No regression cases completed.' };
