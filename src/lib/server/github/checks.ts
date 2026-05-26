@@ -49,7 +49,7 @@ function buildCheckOutput(input: {
 		const safeName = escapeMarkdownTableCell(caseRun.testCaseName);
 		const safeResult = escapeMarkdownTableCell(result);
 		lines.push(
-			`| ${safeName} | ${caseRun.score ?? '—'} | ${safeResult}${caseRun.runPublicId ? ` ([trace](/runs/${caseRun.runPublicId}))` : ''} |`
+			`| ${safeName} | ${caseRun.score ?? '—'} | ${safeResult}${caseRun.runPublicId ? ` ([trace](${dashboardUrl(`/runs/${caseRun.runPublicId}`)}))` : ''} |`
 		);
 	}
 
