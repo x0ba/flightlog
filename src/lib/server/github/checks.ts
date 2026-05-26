@@ -42,9 +42,10 @@ function buildCheckOutput(input: {
 				: caseRun.passed
 					? 'passed'
 					: `failed${caseRun.failureReason ? `: ${caseRun.failureReason}` : ''}`;
-		lines.push(
-			`| ${caseRun.testCaseName} | ${caseRun.score ?? '—'} | ${result}${caseRun.runPublicId ? ` ([trace](/runs/${caseRun.runPublicId}))` : ''} |`
-		);
+		const traceLink = caseRun.runPublicId
+			? ` ([trace](${dashboardUrl(`/runs/${caseRun.runPublicId}`)}))`
+			: '';
+		lines.push(`| ${caseRun.testCaseName} | ${caseRun.score ?? '—'} | ${result}${traceLink} |`);
 	}
 
 	lines.push(
