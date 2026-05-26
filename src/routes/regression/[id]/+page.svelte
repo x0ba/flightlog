@@ -39,6 +39,10 @@
 				})
 			});
 			if (!response.ok) throw new Error(await response.text());
+			caseName = '';
+			goal = '';
+			constraints = '';
+			minScore = 70;
 			await goto(resolve(`/regression/${data.suite.publicId}`), { invalidateAll: true });
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : 'Could not add regression case.';

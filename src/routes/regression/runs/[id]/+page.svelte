@@ -1,8 +1,16 @@
 <script lang="ts">
+	import { invalidateAll } from '$app/navigation';
 	import * as Table from '$lib/components/ui/table';
 	import { resolve } from '$app/paths';
 
 	let { data } = $props();
+	let isActiveRun = $derived(['pending', 'running'].includes(data.regressionRun.status));
+
+	$effect(() => {
+		if (!isActiveRun) return;
+		const interval = window.setInterval(() => void invalidateAll(), 3000);
+		return () => window.clearInterval(interval);
+	});
 
 	function formatDate(value: string | Date | null) {
 		if (!value) return '—';

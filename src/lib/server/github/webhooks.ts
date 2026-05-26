@@ -55,12 +55,17 @@ export async function handleGithubWebhook(request: Request) {
 	const signature = request.headers.get('x-hub-signature-256');
 	if (!signature) return new Response('Missing signature', { status: 401 });
 
-	await githubApp.webhooks.verifyAndReceive({
-		id,
-		name,
-		signature,
-		payload
-	});
+	const validSignature = await githubApp.webhooks.verify(payload, signature);
+	if (!validSignature) return new Response('Invalid signature', { status: 401 });
+
+	try {
+		const event = { id, name, payload: JSON.parse(payload) } as Parameters<
+			typeof githubApp.webhooks.receive
+		>[0];
+		await githubApp.webhooks.receive(event);
+	} catch (cause) {
+		console.error('GitHub webhook handler failed', cause);
+	}
 
 	return new Response('ok');
 }
