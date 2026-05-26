@@ -17,6 +17,10 @@ import { aggregateSuiteResult, evaluateCaseResult } from './policy';
 import { findRegressionSuiteByRepository, findRegressionSuiteForUser } from './suites';
 import type { EvaluationPolicy } from './policy';
 
+type RegressionSuiteForUser = NonNullable<
+	Awaited<ReturnType<typeof findRegressionSuiteForUser>>
+>;
+
 const activeRegressionRuns = new Set<number>();
 
 type AgentConfig = {
@@ -66,7 +70,7 @@ async function waitForRunCompletion(publicRunId: string, timeoutMs = 600_000) {
 }
 
 export async function createRegressionRun(
-	suitePublicId: string,
+	suite: RegressionSuiteForUser,
 	ownerUserId: string,
 	input: {
 		githubOwner?: string;
@@ -78,9 +82,6 @@ export async function createRegressionRun(
 		metadata?: unknown;
 	}
 ) {
-	const suite = await findRegressionSuiteForUser(suitePublicId, ownerUserId);
-	if (!suite) return undefined;
-
 	const enabledCases = suite.cases.filter((testCase) => testCase.enabled);
 	const [regressionRun] = await db
 		.insert(regressionRuns)
@@ -414,6 +415,9 @@ export async function completeRegressionCaseRun(input: {
 			})
 			.where(eq(regressionRuns.id, detail.regressionRun.id));
 	}
+
+	const { updateRegressionCheckRun } = await import('$lib/server/github/checks');
+	await updateRegressionCheckRun(detail.regressionRun.id).catch(() => undefined);
 
 	return { caseResult, evaluation };
 }

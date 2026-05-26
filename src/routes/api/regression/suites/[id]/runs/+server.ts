@@ -10,7 +10,7 @@ export async function POST(event) {
 	if (!suite) notFound('Regression suite not found');
 
 	const input = await parseJson(event, startRegressionRunSchema);
-	const regressionRun = await createRegressionRun(event.params.id, userId, {
+	const regressionRun = await createRegressionRun(suite, userId, {
 		githubOwner: suite.repositoryOwner,
 		githubRepo: suite.repositoryName,
 		githubSha: input.githubSha,
@@ -18,16 +18,21 @@ export async function POST(event) {
 		pullRequestNumber: input.pullRequestNumber,
 		metadata: input.metadata
 	});
-	if (!regressionRun) notFound('Regression suite not found');
+	if (!regressionRun) notFound('Regression run could not be created');
 
 	scheduleRegressionRun(regressionRun.id);
+
+	const pageUrl = new URL(
+		`/regression/runs/${regressionRun.publicId}`,
+		event.request.url
+	).href;
 
 	return ok(
 		{
 			run: {
 				id: regressionRun.publicId,
 				status: regressionRun.status,
-				pageUrl: `/regression/runs/${regressionRun.publicId}`
+				pageUrl
 			}
 		},
 		{ status: 201 }
