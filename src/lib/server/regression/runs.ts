@@ -174,6 +174,7 @@ export async function executeRegressionRun(regressionRunId: number) {
 		.limit(1);
 	if (
 		!regressionRun ||
+		regressionRun.status === 'running' ||
 		regressionRun.status === 'success' ||
 		regressionRun.status === 'failed' ||
 		regressionRun.status === 'cancelled'
@@ -211,7 +212,7 @@ export async function executeRegressionRun(regressionRunId: number) {
 	const { updateRegressionCheckRun } = await import('$lib/server/github/checks');
 
 	for (const { caseRun, testCase } of caseRuns) {
-		if (caseRun.status !== 'pending' && caseRun.status !== 'running') continue;
+		if (caseRun.status !== 'pending') continue;
 
 		await db
 			.update(regressionCaseRuns)
