@@ -192,7 +192,7 @@ export class FlightLogRun {
 	}
 
 	evaluate(input: { constraints?: string[] } = {}) {
-		return this.client.request<{ evaluation: { id: string; status: string } }>(
+		return this.client.request<{ evaluation: { id: string; status: string; score?: number } }>(
 			`/api/runs/${this.id}/evaluate`,
 			{ method: 'POST', body: input }
 		);
