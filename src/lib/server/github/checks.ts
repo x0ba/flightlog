@@ -59,6 +59,21 @@ function buildCheckOutput(input: {
 	};
 }
 
+function checkRunStatus(status: typeof regressionRuns.$inferSelect.status) {
+	if (status === 'pending' || status === 'running') return 'in_progress';
+	return 'completed';
+}
+
+function checkRunConclusion(
+	status: typeof regressionRuns.$inferSelect.status,
+	passed: boolean | null
+) {
+	if (status === 'success') return passed ? 'success' : 'failure';
+	if (status === 'failed') return 'failure';
+	if (status === 'cancelled') return 'cancelled';
+	return undefined;
+}
+
 export async function createRegressionCheckRun(input: {
 	installationId: number;
 	owner: string;
@@ -88,7 +103,6 @@ export async function createRegressionCheckRun(input: {
 
 export async function updateRegressionCheckRun(regressionRunId: number) {
 	if (!isGithubAppConfigured()) return;
-
 	const [regressionRun] = await db
 		.select()
 		.from(regressionRuns)
@@ -134,15 +148,16 @@ export async function updateRegressionCheckRun(regressionRunId: number) {
 	});
 
 	const octokit = await getInstallationOctokit(installationId);
-	const isComplete = regressionRun.status === 'success' || regressionRun.status === 'failed';
+	const status = checkRunStatus(regressionRun.status);
+	const conclusion = checkRunConclusion(regressionRun.status, regressionRun.passed);
 
 	await octokit.rest.checks.update({
 		owner: regressionRun.githubOwner,
 		repo: regressionRun.githubRepo,
-		check_run_id: regressionRun.githubCheckRunId,
-		status: isComplete ? 'completed' : 'in_progress',
-		conclusion: isComplete ? (regressionRun.passed ? 'success' : 'failure') : undefined,
-		completed_at: isComplete ? new Date().toISOString() : undefined,
+		check_run_id: Number(regressionRun.githubCheckRunId),
+		status,
+		conclusion,
+		completed_at: status === 'completed' ? new Date().toISOString() : undefined,
 		output,
 		details_url: dashboardUrl(`/regression/runs/${regressionRun.publicId}`)
 	});

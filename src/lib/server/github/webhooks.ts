@@ -145,7 +145,7 @@ async function startGithubRegressionRun(input: {
 		await db
 			.update(regressionRuns)
 			.set({
-				githubCheckRunId: checkRunId,
+				githubCheckRunId: BigInt(checkRunId),
 				metadata: {
 					installationId: input.installationId,
 					source: 'github'

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import {
 	githubInstallations,
@@ -7,34 +7,12 @@ import {
 	regressionSuites
 } from '$lib/server/db/schema';
 import { publicId } from '$lib/server/public-id';
-import type { EvaluationPolicy } from './policy';
-
-const defaultPolicy: EvaluationPolicy = {
-	minScore: 70,
-	allowConstraintViolations: false,
-	allowErrorFindings: false
-};
-
-function parsePolicy(value: unknown): EvaluationPolicy {
-	if (!value || typeof value !== 'object' || Array.isArray(value)) return defaultPolicy;
-	const policy = value as Partial<EvaluationPolicy>;
-	return {
-		minScore: typeof policy.minScore === 'number' ? policy.minScore : defaultPolicy.minScore,
-		allowConstraintViolations:
-			typeof policy.allowConstraintViolations === 'boolean'
-				? policy.allowConstraintViolations
-				: defaultPolicy.allowConstraintViolations,
-		allowErrorFindings:
-			typeof policy.allowErrorFindings === 'boolean'
-				? policy.allowErrorFindings
-				: defaultPolicy.allowErrorFindings
-	};
-}
-
-function parseConstraints(value: unknown) {
-	if (!Array.isArray(value)) return [] as string[];
-	return value.filter((item): item is string => typeof item === 'string');
-}
+import {
+	defaultEvaluationPolicy,
+	parseConstraints,
+	parsePolicy,
+	type EvaluationPolicy
+} from './policy';
 
 export async function upsertGithubInstallation(input: {
 	installationId: number;
@@ -43,28 +21,7 @@ export async function upsertGithubInstallation(input: {
 	ownerUserId?: string;
 	metadata?: unknown;
 }) {
-	const [existing] = await db
-		.select()
-		.from(githubInstallations)
-		.where(eq(githubInstallations.installationId, input.installationId))
-		.limit(1);
-
-	if (existing) {
-		const [updated] = await db
-			.update(githubInstallations)
-			.set({
-				accountLogin: input.accountLogin,
-				accountType: input.accountType,
-				ownerUserId: input.ownerUserId ?? existing.ownerUserId,
-				metadata: input.metadata ?? existing.metadata,
-				updatedAt: new Date()
-			})
-			.where(eq(githubInstallations.id, existing.id))
-			.returning();
-		return updated;
-	}
-
-	const [created] = await db
+	const [upserted] = await db
 		.insert(githubInstallations)
 		.values({
 			publicId: publicId('gh'),
@@ -74,9 +31,19 @@ export async function upsertGithubInstallation(input: {
 			ownerUserId: input.ownerUserId,
 			metadata: input.metadata
 		})
+		.onConflictDoUpdate({
+			target: githubInstallations.installationId,
+			set: {
+				accountLogin: input.accountLogin,
+				accountType: input.accountType,
+				ownerUserId: sql`coalesce(excluded.owner_user_id, ${githubInstallations.ownerUserId})`,
+				metadata: sql`coalesce(excluded.metadata, ${githubInstallations.metadata})`,
+				updatedAt: new Date()
+			}
+		})
 		.returning();
 
-	return created;
+	return upserted;
 }
 
 export async function deleteGithubInstallation(installationId: number) {
@@ -117,7 +84,7 @@ export async function createRegressionSuite(
 			repositoryName: input.repositoryName,
 			githubInstallationId: input.githubInstallationId,
 			enabled: input.enabled ?? true,
-			evaluationPolicy: input.evaluationPolicy ?? defaultPolicy
+			evaluationPolicy: input.evaluationPolicy ?? defaultEvaluationPolicy
 		})
 		.returning();
 
@@ -131,32 +98,50 @@ export async function listRegressionSuites(ownerUserId: string) {
 		.where(eq(regressionSuites.ownerUserId, ownerUserId))
 		.orderBy(desc(regressionSuites.updatedAt));
 
-	return Promise.all(
-		suites.map(async (suite) => {
-			const cases = await listRegressionCases(suite.id);
-			const [latestRun] = await db
-				.select()
-				.from(regressionRuns)
-				.where(eq(regressionRuns.suiteId, suite.id))
-				.orderBy(desc(regressionRuns.createdAt))
-				.limit(1);
+	if (!suites.length) return [];
 
-			return {
-				...suite,
-				evaluationPolicy: parsePolicy(suite.evaluationPolicy),
-				caseCount: cases.length,
-				latestRun: latestRun
-					? {
-							id: latestRun.publicId,
-							status: latestRun.status,
-							passed: latestRun.passed,
-							aggregateScore: latestRun.aggregateScore,
-							completedAt: latestRun.completedAt
-						}
-					: null
-			};
-		})
-	);
+	const suiteIds = suites.map((suite) => suite.id);
+
+	const cases = await db
+		.select({ suiteId: regressionCases.suiteId })
+		.from(regressionCases)
+		.where(inArray(regressionCases.suiteId, suiteIds));
+
+	const caseCountBySuiteId = new Map<number, number>();
+	for (const testCase of cases) {
+		caseCountBySuiteId.set(testCase.suiteId, (caseCountBySuiteId.get(testCase.suiteId) ?? 0) + 1);
+	}
+
+	const runs = await db
+		.select()
+		.from(regressionRuns)
+		.where(inArray(regressionRuns.suiteId, suiteIds))
+		.orderBy(desc(regressionRuns.createdAt));
+
+	const latestRunBySuiteId = new Map<number, (typeof runs)[number]>();
+	for (const run of runs) {
+		if (!latestRunBySuiteId.has(run.suiteId)) {
+			latestRunBySuiteId.set(run.suiteId, run);
+		}
+	}
+
+	return suites.map((suite) => {
+		const latestRun = latestRunBySuiteId.get(suite.id);
+		return {
+			...suite,
+			evaluationPolicy: parsePolicy(suite.evaluationPolicy),
+			caseCount: caseCountBySuiteId.get(suite.id) ?? 0,
+			latestRun: latestRun
+				? {
+						id: latestRun.publicId,
+						status: latestRun.status,
+						passed: latestRun.passed,
+						aggregateScore: latestRun.aggregateScore,
+						completedAt: latestRun.completedAt
+					}
+				: null
+		};
+	});
 }
 
 export async function findRegressionSuiteForUser(publicSuiteId: string, ownerUserId: string) {
