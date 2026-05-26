@@ -13,7 +13,7 @@ import { createAgentRun, maybeStartAgentRun } from '$lib/server/agent-runner/ser
 import { evaluateRun } from '$lib/server/evaluation/service';
 import { findRun } from '$lib/server/runs';
 import { publicId } from '$lib/server/public-id';
-import { aggregateSuiteResult, evaluateCaseResult } from './policy';
+import { aggregateSuiteResult, evaluateCaseResult, parseConstraints, parsePolicy } from './policy';
 import { findRegressionSuiteByRepository, findRegressionSuiteForUser } from './suites';
 import type { EvaluationPolicy } from './policy';
 
@@ -37,29 +37,14 @@ function parseAgentConfig(value: unknown): AgentConfig {
 	return value as AgentConfig;
 }
 
-function parsePolicy(value: unknown): EvaluationPolicy {
-	if (!value || typeof value !== 'object' || Array.isArray(value)) {
-		return { minScore: 70, allowConstraintViolations: false, allowErrorFindings: false };
-	}
-	const policy = value as Partial<EvaluationPolicy>;
-	return {
-		minScore: typeof policy.minScore === 'number' ? policy.minScore : 70,
-		allowConstraintViolations: policy.allowConstraintViolations ?? false,
-		allowErrorFindings: policy.allowErrorFindings ?? false
-	};
-}
-
-function parseConstraints(value: unknown) {
-	if (!Array.isArray(value)) return [] as string[];
-	return value.filter((item): item is string => typeof item === 'string');
-}
-
 async function waitForRunCompletion(publicRunId: string, timeoutMs = 600_000) {
 	const started = Date.now();
 	while (Date.now() - started < timeoutMs) {
 		const run = await findRun(publicRunId);
 		if (!run) throw new Error('Run not found');
-		if (run.status !== 'running') return run;
+		if (run.status === 'success' || run.status === 'failed' || run.status === 'cancelled') {
+			return run;
+		}
 		await new Promise((resolve) => setTimeout(resolve, 2000));
 	}
 	throw new Error('Agent run timed out');
@@ -305,7 +290,7 @@ async function executeRegressionCase(input: {
 		model: agentConfig.model,
 		credentialId: agentConfig.credentialId,
 		tools: agentConfig.tools,
-		approvalPolicy: agentConfig.approvalPolicy ?? 'never',
+		approvalPolicy: agentConfig.approvalPolicy ?? 'risk_based',
 		maxSteps: agentConfig.maxSteps,
 		temperature: agentConfig.temperature,
 		systemPrompt: input.testCase.expectedBehavior ?? agentConfig.systemPrompt

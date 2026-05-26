@@ -3,6 +3,34 @@ import type { z } from 'zod';
 
 export type EvaluationPolicy = z.infer<typeof evaluationPolicySchema>;
 
+export const defaultEvaluationPolicy: EvaluationPolicy = {
+	minScore: 70,
+	allowConstraintViolations: false,
+	allowErrorFindings: false
+};
+
+export function parsePolicy(value: unknown): EvaluationPolicy {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) return defaultEvaluationPolicy;
+	const policy = value as Partial<EvaluationPolicy>;
+	return {
+		minScore:
+			typeof policy.minScore === 'number' ? policy.minScore : defaultEvaluationPolicy.minScore,
+		allowConstraintViolations:
+			typeof policy.allowConstraintViolations === 'boolean'
+				? policy.allowConstraintViolations
+				: defaultEvaluationPolicy.allowConstraintViolations,
+		allowErrorFindings:
+			typeof policy.allowErrorFindings === 'boolean'
+				? policy.allowErrorFindings
+				: defaultEvaluationPolicy.allowErrorFindings
+	};
+}
+
+export function parseConstraints(value: unknown) {
+	if (!Array.isArray(value)) return [] as string[];
+	return value.filter((item): item is string => typeof item === 'string');
+}
+
 export type CaseEvaluationInput = {
 	score: number | null;
 	violatedConstraints: boolean | null;
@@ -19,8 +47,11 @@ export function evaluateCaseResult(input: CaseEvaluationInput, policy: Evaluatio
 	const minScore = resolveMinScore(policy, input.caseMinScore);
 	const score = input.score ?? 0;
 
-	if (!input.goalCompleted) {
+	if (input.goalCompleted === false) {
 		return { passed: false, reason: 'Agent did not complete the goal.' };
+	}
+	if (input.goalCompleted !== true) {
+		return { passed: false, reason: 'Goal completion was not determined.' };
 	}
 	if (!policy.allowConstraintViolations && input.violatedConstraints) {
 		return { passed: false, reason: 'Agent violated one or more constraints.' };
