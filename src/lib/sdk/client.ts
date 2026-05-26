@@ -96,10 +96,19 @@ export class FlightLogClient {
 		caseId: string,
 		input: { runId: string; constraints?: string[] }
 	) {
-		return this.request<{ passed: boolean; reason?: string }>(
-			`/api/regression/runs/${regressionRunId}/cases/${caseId}/complete`,
-			{ method: 'POST', body: input }
-		);
+		return this.request<{
+			passed: boolean;
+			reason?: string;
+			evaluation: {
+				id: string;
+				score: number;
+				status: string;
+				summary: string | null;
+			};
+		}>(`/api/regression/runs/${regressionRunId}/cases/${caseId}/complete`, {
+			method: 'POST',
+			body: input
+		});
 	}
 
 	async request<T>(path: string, init: { method: string; body?: unknown }) {
