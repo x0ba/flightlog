@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import {
 	githubInstallations,
@@ -98,32 +98,50 @@ export async function listRegressionSuites(ownerUserId: string) {
 		.where(eq(regressionSuites.ownerUserId, ownerUserId))
 		.orderBy(desc(regressionSuites.updatedAt));
 
-	return Promise.all(
-		suites.map(async (suite) => {
-			const cases = await listRegressionCases(suite.id);
-			const [latestRun] = await db
-				.select()
-				.from(regressionRuns)
-				.where(eq(regressionRuns.suiteId, suite.id))
-				.orderBy(desc(regressionRuns.createdAt))
-				.limit(1);
+	if (!suites.length) return [];
 
-			return {
-				...suite,
-				evaluationPolicy: parsePolicy(suite.evaluationPolicy),
-				caseCount: cases.length,
-				latestRun: latestRun
-					? {
-							id: latestRun.publicId,
-							status: latestRun.status,
-							passed: latestRun.passed,
-							aggregateScore: latestRun.aggregateScore,
-							completedAt: latestRun.completedAt
-						}
-					: null
-			};
-		})
-	);
+	const suiteIds = suites.map((suite) => suite.id);
+
+	const cases = await db
+		.select({ suiteId: regressionCases.suiteId })
+		.from(regressionCases)
+		.where(inArray(regressionCases.suiteId, suiteIds));
+
+	const caseCountBySuiteId = new Map<number, number>();
+	for (const testCase of cases) {
+		caseCountBySuiteId.set(testCase.suiteId, (caseCountBySuiteId.get(testCase.suiteId) ?? 0) + 1);
+	}
+
+	const runs = await db
+		.select()
+		.from(regressionRuns)
+		.where(inArray(regressionRuns.suiteId, suiteIds))
+		.orderBy(desc(regressionRuns.createdAt));
+
+	const latestRunBySuiteId = new Map<number, (typeof runs)[number]>();
+	for (const run of runs) {
+		if (!latestRunBySuiteId.has(run.suiteId)) {
+			latestRunBySuiteId.set(run.suiteId, run);
+		}
+	}
+
+	return suites.map((suite) => {
+		const latestRun = latestRunBySuiteId.get(suite.id);
+		return {
+			...suite,
+			evaluationPolicy: parsePolicy(suite.evaluationPolicy),
+			caseCount: caseCountBySuiteId.get(suite.id) ?? 0,
+			latestRun: latestRun
+				? {
+						id: latestRun.publicId,
+						status: latestRun.status,
+						passed: latestRun.passed,
+						aggregateScore: latestRun.aggregateScore,
+						completedAt: latestRun.completedAt
+					}
+				: null
+		};
+	});
 }
 
 export async function findRegressionSuiteForUser(publicSuiteId: string, ownerUserId: string) {

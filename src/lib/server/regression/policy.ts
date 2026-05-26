@@ -45,7 +45,6 @@ export function resolveMinScore(policy: EvaluationPolicy, caseMinScore?: number)
 
 export function evaluateCaseResult(input: CaseEvaluationInput, policy: EvaluationPolicy) {
 	const minScore = resolveMinScore(policy, input.caseMinScore);
-	const score = input.score ?? 0;
 
 	if (input.goalCompleted === false) {
 		return { passed: false, reason: 'Agent did not complete the goal.' };
@@ -62,10 +61,13 @@ export function evaluateCaseResult(input: CaseEvaluationInput, policy: Evaluatio
 	) {
 		return { passed: false, reason: 'Evaluation reported error-severity findings.' };
 	}
-	if (score < minScore) {
+	if (input.score === null) {
+		return { passed: false, reason: 'Evaluation did not produce a score.' };
+	}
+	if (input.score < minScore) {
 		return {
 			passed: false,
-			reason: `Score ${score} is below the minimum threshold of ${minScore}.`
+			reason: `Score ${input.score} is below the minimum threshold of ${minScore}.`
 		};
 	}
 
