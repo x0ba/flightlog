@@ -30,3 +30,12 @@ export async function getInstallationOctokit(installationId: number) {
 	if (!githubApp) throw new Error('GitHub App is not configured');
 	return githubApp.getInstallationOctokit(installationId);
 }
+
+export async function getGithubInstallation(installationId: number) {
+	const githubApp = getGithubApp();
+	if (!githubApp) throw new Error('GitHub App is not configured');
+	const response = await githubApp.octokit.rest.apps.getInstallation({
+		installation_id: installationId
+	});
+	return response.data;
+}

@@ -36,7 +36,7 @@ export async function upsertGithubInstallation(input: {
 			set: {
 				accountLogin: input.accountLogin,
 				accountType: input.accountType,
-				ownerUserId: sql`coalesce(excluded.owner_user_id, ${githubInstallations.ownerUserId})`,
+				ownerUserId: sql`coalesce(${githubInstallations.ownerUserId}, excluded.owner_user_id)`,
 				metadata: sql`coalesce(excluded.metadata, ${githubInstallations.metadata})`,
 				updatedAt: new Date()
 			}

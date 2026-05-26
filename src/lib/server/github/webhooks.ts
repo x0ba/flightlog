@@ -7,7 +7,7 @@ import {
 } from '$lib/server/regression/runs';
 import { deleteGithubInstallation, upsertGithubInstallation } from '$lib/server/regression/suites';
 import { getGithubApp, isGithubAppConfigured } from './app';
-import { createRegressionCheckRun } from './checks';
+import { createRegressionCheckRun, CHECK_NAME } from './checks';
 
 type PullRequestPayload = {
 	action: string;
@@ -33,6 +33,7 @@ type InstallationPayload = {
 type CheckRunPayload = {
 	action: 'rerequested';
 	check_run: {
+		name?: string;
 		head_sha: string;
 		external_id?: string;
 	};
@@ -55,12 +56,20 @@ export async function handleGithubWebhook(request: Request) {
 	const signature = request.headers.get('x-hub-signature-256');
 	if (!signature) return new Response('Missing signature', { status: 401 });
 
-	await githubApp.webhooks.verifyAndReceive({
-		id,
-		name,
-		signature,
-		payload
-	});
+	try {
+		await githubApp.webhooks.verifyAndReceive({
+			id,
+			name,
+			signature,
+			payload
+		});
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		if (message.toLowerCase().includes('signature')) {
+			return new Response('Invalid signature', { status: 401 });
+		}
+		console.error('GitHub webhook handler error:', error);
+	}
 
 	return new Response('ok');
 }
@@ -103,6 +112,7 @@ export function registerGithubWebhookHandlers() {
 	githubApp.webhooks.on('check_run', async ({ payload }) => {
 		const event = payload as CheckRunPayload;
 		if (event.action !== 'rerequested') return;
+		if (event.check_run.name !== CHECK_NAME) return;
 		const installationId = event.installation?.id;
 		if (!installationId) return;
 
