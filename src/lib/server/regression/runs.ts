@@ -17,9 +17,7 @@ import { aggregateSuiteResult, evaluateCaseResult, parseConstraints, parsePolicy
 import { findRegressionSuiteByRepository, findRegressionSuiteForUser } from './suites';
 import type { EvaluationPolicy } from './policy';
 
-type RegressionSuiteForUser = NonNullable<
-	Awaited<ReturnType<typeof findRegressionSuiteForUser>>
->;
+type RegressionSuiteForUser = NonNullable<Awaited<ReturnType<typeof findRegressionSuiteForUser>>>;
 
 const activeRegressionRuns = new Set<number>();
 
@@ -433,17 +431,21 @@ export async function completeRegressionCaseRun(input: {
 	if (!run || run.ownerUserId !== input.ownerUserId) return { status: 'not_found' as const };
 
 	if (detail.regressionRun.status === 'pending') {
-		await db
+		const updated = await db
 			.update(regressionRuns)
 			.set({
 				status: 'running',
 				startedAt: detail.regressionRun.startedAt ?? new Date(),
 				updatedAt: new Date()
 			})
-			.where(eq(regressionRuns.id, detail.regressionRun.id));
+			.where(
+				and(eq(regressionRuns.id, detail.regressionRun.id), eq(regressionRuns.status, 'pending'))
+			);
 
-		const { updateRegressionCheckRun } = await import('$lib/server/github/checks');
-		await updateRegressionCheckRun(detail.regressionRun.id).catch(() => undefined);
+		if (updated.rowCount) {
+			const { updateRegressionCheckRun } = await import('$lib/server/github/checks');
+			await updateRegressionCheckRun(detail.regressionRun.id).catch(() => undefined);
+		}
 	}
 
 	const constraints = input.constraints ?? parseConstraints(caseRun.testCase.constraints);

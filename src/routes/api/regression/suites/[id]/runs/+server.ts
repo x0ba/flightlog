@@ -23,10 +23,7 @@ export async function POST(event) {
 		scheduleRegressionRun(regressionRun.id);
 	}
 
-	const pageUrl = new URL(
-		`/regression/runs/${regressionRun.publicId}`,
-		event.request.url
-	).href;
+	const pageUrl = new URL(`/regression/runs/${regressionRun.publicId}`, event.request.url).href;
 
 	return ok(
 		{
