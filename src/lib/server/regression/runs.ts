@@ -448,6 +448,17 @@ export async function completeRegressionCaseRun(input: {
 		}
 	}
 
+	const claimedCaseRun = await db
+		.update(regressionCaseRuns)
+		.set({
+			status: 'running',
+			startedAt: caseRun.startedAt ?? new Date(),
+			updatedAt: new Date()
+		})
+		.where(and(eq(regressionCaseRuns.id, caseRun.id), eq(regressionCaseRuns.status, 'pending')));
+
+	if (!claimedCaseRun.rowCount) return { status: 'in_progress' as const };
+
 	const constraints = input.constraints ?? parseConstraints(caseRun.testCase.constraints);
 
 	const evaluation = await evaluateRun(run.publicId, input.ownerUserId, constraints);
