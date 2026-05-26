@@ -37,7 +37,7 @@ FLIGHTLOG_AGENT_APPROVAL_TIMEOUT_SECONDS=300
 `FLIGHTLOG_KEYS_SECRET` is required when saving or using dashboard-entered provider API keys. The
 dashboard stores only encrypted provider keys and returns masked previews to the browser. Clerk is
 required for dashboard access and API ingestion. Existing unowned local runs and provider
-credentials are claimed by the first signed-in Clerk user.
+credentials remain unowned until they are assigned through an explicit backfill.
 
 If `OPENAI_API_KEY` is missing, evaluations still run with deterministic rule checks. Browser-mode
 UI agent runs require `OPENAI_API_KEY` and `BROWSERBASE_API_KEY` because they use OpenAI computer use
