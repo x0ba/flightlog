@@ -166,7 +166,12 @@ export async function executeRegressionRun(regressionRunId: number) {
 		.from(regressionRuns)
 		.where(eq(regressionRuns.id, regressionRunId))
 		.limit(1);
-	if (!regressionRun || regressionRun.status === 'success' || regressionRun.status === 'failed') {
+	if (
+		!regressionRun ||
+		regressionRun.status === 'success' ||
+		regressionRun.status === 'failed' ||
+		regressionRun.status === 'cancelled'
+	) {
 		return regressionRun;
 	}
 
