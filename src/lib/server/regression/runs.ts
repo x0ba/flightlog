@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray, notExists } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import {
 	evaluationFindings,
@@ -342,6 +342,46 @@ async function executeRegressionCase(input: {
 	};
 }
 
+async function finalizeRegressionRunIfComplete(regressionRunId: number) {
+	const caseRuns = await db
+		.select()
+		.from(regressionCaseRuns)
+		.where(eq(regressionCaseRuns.regressionRunId, regressionRunId));
+
+	const aggregate = aggregateSuiteResult(caseRuns);
+
+	const [finalized] = await db
+		.update(regressionRuns)
+		.set({
+			status: aggregate.passed ? 'success' : 'failed',
+			passed: aggregate.passed,
+			aggregateScore: aggregate.aggregateScore,
+			summary: aggregate.summary,
+			completedAt: new Date(),
+			updatedAt: new Date()
+		})
+		.where(
+			and(
+				eq(regressionRuns.id, regressionRunId),
+				inArray(regressionRuns.status, ['pending', 'running']),
+				notExists(
+					db
+						.select({ id: regressionCaseRuns.id })
+						.from(regressionCaseRuns)
+						.where(
+							and(
+								eq(regressionCaseRuns.regressionRunId, regressionRunId),
+								inArray(regressionCaseRuns.status, ['pending', 'running'])
+							)
+						)
+				)
+			)
+		)
+		.returning();
+
+	return finalized;
+}
+
 export async function completeRegressionCaseRun(input: {
 	regressionRunPublicId: string;
 	casePublicId: string;
@@ -432,28 +472,7 @@ export async function completeRegressionCaseRun(input: {
 		})
 		.where(eq(regressionCaseRuns.id, caseRun.id));
 
-	const updatedCaseRuns = await db
-		.select()
-		.from(regressionCaseRuns)
-		.where(eq(regressionCaseRuns.regressionRunId, detail.regressionRun.id));
-
-	const allDone = updatedCaseRuns.every(
-		(row) => row.status !== 'pending' && row.status !== 'running'
-	);
-	if (allDone) {
-		const aggregate = aggregateSuiteResult(updatedCaseRuns);
-		await db
-			.update(regressionRuns)
-			.set({
-				status: aggregate.passed ? 'success' : 'failed',
-				passed: aggregate.passed,
-				aggregateScore: aggregate.aggregateScore,
-				summary: aggregate.summary,
-				completedAt: new Date(),
-				updatedAt: new Date()
-			})
-			.where(eq(regressionRuns.id, detail.regressionRun.id));
-	}
+	await finalizeRegressionRunIfComplete(detail.regressionRun.id);
 
 	const { updateRegressionCheckRun } = await import('$lib/server/github/checks');
 	await updateRegressionCheckRun(detail.regressionRun.id).catch(() => undefined);
