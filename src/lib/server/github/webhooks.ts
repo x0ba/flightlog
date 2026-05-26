@@ -143,26 +143,30 @@ async function startGithubRegressionRun(input: {
 	});
 	if (!created) return;
 
-	const checkRunId = await createRegressionCheckRun({
-		installationId: input.installationId,
-		owner: input.repositoryOwner,
-		repo: input.repositoryName,
-		headSha: input.githubSha,
-		regressionRunPublicId: created.regressionRun.publicId
-	});
+	try {
+		const checkRunId = await createRegressionCheckRun({
+			installationId: input.installationId,
+			owner: input.repositoryOwner,
+			repo: input.repositoryName,
+			headSha: input.githubSha,
+			regressionRunPublicId: created.regressionRun.publicId
+		});
 
-	if (checkRunId) {
-		await db
-			.update(regressionRuns)
-			.set({
-				githubCheckRunId: checkRunId,
-				metadata: {
-					installationId: input.installationId,
-					source: 'github'
-				},
-				updatedAt: new Date()
-			})
-			.where(eq(regressionRuns.id, created.regressionRun.id));
+		if (checkRunId) {
+			await db
+				.update(regressionRuns)
+				.set({
+					githubCheckRunId: checkRunId,
+					metadata: {
+						installationId: input.installationId,
+						source: 'github'
+					},
+					updatedAt: new Date()
+				})
+				.where(eq(regressionRuns.id, created.regressionRun.id));
+		}
+	} catch (error) {
+		console.error('Failed to create or persist GitHub check run:', error);
 	}
 
 	scheduleRegressionRun(created.regressionRun.id);
