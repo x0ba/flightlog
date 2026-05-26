@@ -32,14 +32,23 @@ export function isProtectedPath(pathname: string) {
 	return (
 		pathname === '/runs' ||
 		pathname.startsWith('/runs/') ||
+		pathname === '/regression' ||
+		pathname.startsWith('/regression/') ||
 		pathname.startsWith('/api/runs') ||
 		pathname.startsWith('/api/v1/traces') ||
 		pathname.startsWith('/api/agent-runs') ||
+		pathname.startsWith('/api/regression') ||
+		pathname.startsWith('/api/github/installations') ||
 		pathname.startsWith('/api/settings/providers')
 	);
 }
 
+export function isPublicApiPath(pathname: string) {
+	return pathname === '/api/github/webhook';
+}
+
 export function guardProtectedPath(event: RequestEvent) {
+	if (isPublicApiPath(event.url.pathname)) return;
 	if (!isProtectedPath(event.url.pathname)) return;
 	if (readUserId(event)) return;
 	if (event.url.pathname.startsWith('/api/')) {

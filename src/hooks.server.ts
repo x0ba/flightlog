@@ -2,6 +2,9 @@ import { env } from '$env/dynamic/private';
 import type { Handle } from '@sveltejs/kit';
 import { handleClerk } from 'clerk-sveltekit/server';
 import { authenticateBearer, guardProtectedPath } from '$lib/server/auth';
+import { registerGithubWebhookHandlers } from '$lib/server/github/webhooks';
+
+registerGithubWebhookHandlers();
 
 const clerk = handleClerk(env.CLERK_SECRET_KEY ?? '', {
 	protectedPaths: []
