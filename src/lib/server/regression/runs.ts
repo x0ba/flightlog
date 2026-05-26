@@ -350,27 +350,28 @@ export async function completeRegressionCaseRun(input: {
 	constraints?: string[];
 }) {
 	const detail = await findRegressionRunForUser(input.regressionRunPublicId, input.ownerUserId);
-	if (!detail) return undefined;
+	if (!detail) return { status: 'not_found' as const };
 
 	const caseRun = detail.caseRuns.find((row) => row.testCase.publicId === input.casePublicId);
-	if (!caseRun) return undefined;
+	if (!caseRun) return { status: 'not_found' as const };
 
-	if (caseRun.status === 'running') return undefined;
+	if (caseRun.status === 'running') return { status: 'in_progress' as const };
 
 	if (caseRun.status === 'success' || caseRun.status === 'failed' || caseRun.status === 'skipped') {
-		if (!caseRun.evaluationId) return undefined;
+		if (!caseRun.evaluationId) return { status: 'not_found' as const };
 
 		const [existingEvaluation] = await db
 			.select()
 			.from(evaluations)
 			.where(eq(evaluations.id, caseRun.evaluationId))
 			.limit(1);
-		if (!existingEvaluation) return undefined;
+		if (!existingEvaluation) return { status: 'not_found' as const };
 
 		const { updateRegressionCheckRun } = await import('$lib/server/github/checks');
 		await updateRegressionCheckRun(detail.regressionRun.id).catch(() => undefined);
 
 		return {
+			status: 'completed' as const,
 			caseResult: {
 				passed: caseRun.passed ?? false,
 				reason: caseRun.failureReason ?? undefined
@@ -380,12 +381,12 @@ export async function completeRegressionCaseRun(input: {
 	}
 
 	const run = await findRun(input.runPublicId);
-	if (!run || run.ownerUserId !== input.ownerUserId) return undefined;
+	if (!run || run.ownerUserId !== input.ownerUserId) return { status: 'not_found' as const };
 
 	const constraints = input.constraints ?? parseConstraints(caseRun.testCase.constraints);
 
 	const evaluation = await evaluateRun(run.publicId, input.ownerUserId, constraints);
-	if (!evaluation) return undefined;
+	if (!evaluation) return { status: 'not_found' as const };
 
 	const findings = await db
 		.select()
@@ -443,7 +444,11 @@ export async function completeRegressionCaseRun(input: {
 	const { updateRegressionCheckRun } = await import('$lib/server/github/checks');
 	await updateRegressionCheckRun(detail.regressionRun.id).catch(() => undefined);
 
-	return { caseResult, evaluation };
+	return {
+		status: 'completed' as const,
+		caseResult,
+		evaluation
+	};
 }
 
 export async function findRegressionRunForUser(publicRunId: string, ownerUserId: string) {

@@ -18,7 +18,6 @@ export async function POST(event) {
 		pullRequestNumber: input.pullRequestNumber,
 		metadata: input.metadata
 	});
-	if (!regressionRun) notFound('Regression run could not be created');
 
 	if (input.executionMode === 'automated') {
 		scheduleRegressionRun(regressionRun.id);

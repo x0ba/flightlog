@@ -1,5 +1,5 @@
 import { requireUserId } from '$lib/server/auth';
-import { notFound, ok, parseJson } from '$lib/server/http';
+import { conflict, notFound, ok, parseJson } from '$lib/server/http';
 import { completeRegressionCaseRun } from '$lib/server/regression/runs';
 import { completeRegressionCaseRunSchema } from '$lib/server/validation';
 
@@ -13,7 +13,10 @@ export async function POST(event) {
 		runPublicId: input.runId,
 		constraints: input.constraints
 	});
-	if (!result) notFound('Regression case run not found');
+	if (result.status === 'in_progress') {
+		conflict('Regression case run is already in progress');
+	}
+	if (result.status === 'not_found') notFound('Regression case run not found');
 
 	return ok({
 		passed: result.caseResult.passed,
