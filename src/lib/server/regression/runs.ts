@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, notExists } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import {
 	evaluationFindings,
@@ -343,51 +343,48 @@ async function executeRegressionCase(input: {
 }
 
 async function finalizeRegressionRunIfComplete(regressionRunId: number) {
-	const [claimed] = await db
-		.update(regressionRuns)
-		.set({
-			status: 'success',
-			updatedAt: new Date()
-		})
-		.where(
-			and(
-				eq(regressionRuns.id, regressionRunId),
-				inArray(regressionRuns.status, ['pending', 'running']),
-				notExists(
-					db
-						.select({ id: regressionCaseRuns.id })
-						.from(regressionCaseRuns)
-						.where(
-							and(
-								eq(regressionCaseRuns.regressionRunId, regressionRunId),
-								inArray(regressionCaseRuns.status, ['pending', 'running'])
-							)
-						)
-				)
-			)
+	await db.execute(sql`
+		WITH case_stats AS (
+			SELECT
+				COUNT(*) FILTER (WHERE passed IS NOT NULL) AS completed_count,
+				BOOL_AND(passed) FILTER (WHERE passed IS NOT NULL) AS all_passed,
+				ROUND(AVG(score) FILTER (WHERE score IS NOT NULL))::int AS avg_score,
+				COUNT(*) FILTER (WHERE passed IS NOT NULL AND passed = false) AS failed_count
+			FROM regression_case_runs
+			WHERE regression_run_id = ${regressionRunId}
 		)
-		.returning({ id: regressionRuns.id });
-
-	if (!claimed) return;
-
-	const caseRuns = await db
-		.select()
-		.from(regressionCaseRuns)
-		.where(eq(regressionCaseRuns.regressionRunId, regressionRunId));
-
-	const aggregate = aggregateSuiteResult(caseRuns);
-
-	await db
-		.update(regressionRuns)
-		.set({
-			status: aggregate.passed ? 'success' : 'failed',
-			passed: aggregate.passed,
-			aggregateScore: aggregate.aggregateScore,
-			summary: aggregate.summary,
-			completedAt: new Date(),
-			updatedAt: new Date()
-		})
-		.where(eq(regressionRuns.id, regressionRunId));
+		UPDATE regression_runs AS r
+		SET
+			status = CASE
+				WHEN cs.completed_count = 0 THEN 'failed'::regression_run_status
+				WHEN cs.all_passed THEN 'success'::regression_run_status
+				ELSE 'failed'::regression_run_status
+			END,
+			passed = CASE
+				WHEN cs.completed_count = 0 THEN false
+				ELSE COALESCE(cs.all_passed, false)
+			END,
+			aggregate_score = cs.avg_score,
+			summary = CASE
+				WHEN cs.completed_count = 0 THEN 'No regression cases completed.'
+				WHEN cs.all_passed THEN
+					'All ' || cs.completed_count::text || ' regression case(s) passed.'
+				ELSE
+					cs.failed_count::text || ' of ' || cs.completed_count::text ||
+					' regression case(s) failed.'
+			END,
+			completed_at = NOW(),
+			updated_at = NOW()
+		FROM case_stats AS cs
+		WHERE r.id = ${regressionRunId}
+			AND r.status IN ('pending', 'running')
+			AND NOT EXISTS (
+				SELECT 1
+				FROM regression_case_runs AS c
+				WHERE c.regression_run_id = ${regressionRunId}
+					AND c.status IN ('pending', 'running')
+			)
+	`);
 }
 
 export async function completeRegressionCaseRun(input: {
