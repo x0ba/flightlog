@@ -1,12 +1,24 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { evaluationFindings, evaluations, events, runs, spans } from '$lib/server/db/schema';
 import { publicId } from '$lib/server/public-id';
 import { evaluateRules } from './rules';
 import { fallbackEvaluation, runLlmEvaluation } from './llm';
 
-export async function evaluateRun(publicRunId: string, constraints: string[]) {
-	const [run] = await db.select().from(runs).where(eq(runs.publicId, publicRunId)).limit(1);
+export async function evaluateRun(
+	publicRunId: string,
+	ownerUserId: string | undefined,
+	constraints: string[]
+) {
+	const [run] = await db
+		.select()
+		.from(runs)
+		.where(
+			ownerUserId
+				? and(eq(runs.publicId, publicRunId), eq(runs.ownerUserId, ownerUserId))
+				: eq(runs.publicId, publicRunId)
+		)
+		.limit(1);
 	if (!run) return undefined;
 
 	const eventsList = await db

@@ -1,4 +1,4 @@
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { artifacts, events } from '$lib/server/db/schema';
 import { publicId } from '$lib/server/public-id';
@@ -13,7 +13,7 @@ export async function createArtifact(runId: number, input: ArtifactInput) {
 				await db
 					.select({ id: events.id })
 					.from(events)
-					.where(eq(events.publicId, input.eventId))
+					.where(and(eq(events.publicId, input.eventId), eq(events.runId, runId)))
 					.limit(1)
 			)[0]
 		: undefined;

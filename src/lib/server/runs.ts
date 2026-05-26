@@ -12,6 +12,7 @@ import { publicId } from '$lib/server/public-id';
 type RunStatus = (typeof runStatusEnum.enumValues)[number];
 
 export async function createRun(input: {
+	ownerUserId: string;
 	schemaVersion?: string;
 	name?: string;
 	goal: string;
@@ -24,6 +25,7 @@ export async function createRun(input: {
 		.insert(runs)
 		.values({
 			publicId: publicId('run'),
+			ownerUserId: input.ownerUserId,
 			schemaVersion: input.schemaVersion,
 			name: input.name,
 			goal: input.goal,
@@ -42,6 +44,15 @@ export async function findRun(publicRunId: string) {
 	return run;
 }
 
+export async function findRunForUser(publicRunId: string, ownerUserId: string) {
+	const [run] = await db
+		.select()
+		.from(runs)
+		.where(and(eq(runs.publicId, publicRunId), eq(runs.ownerUserId, ownerUserId)))
+		.limit(1);
+	return run;
+}
+
 export async function updateRun(
 	publicRunId: string,
 	input: { status: RunStatus; metadata?: unknown }
@@ -56,6 +67,26 @@ export async function updateRun(
 			updatedAt: new Date()
 		})
 		.where(eq(runs.publicId, publicRunId))
+		.returning();
+
+	return run;
+}
+
+export async function updateRunForUser(
+	publicRunId: string,
+	ownerUserId: string,
+	input: { status: RunStatus; metadata?: unknown }
+) {
+	const endedAt = input.status === 'running' ? null : new Date();
+	const [run] = await db
+		.update(runs)
+		.set({
+			status: input.status,
+			metadata: input.metadata,
+			endedAt,
+			updatedAt: new Date()
+		})
+		.where(and(eq(runs.publicId, publicRunId), eq(runs.ownerUserId, ownerUserId)))
 		.returning();
 
 	return run;
@@ -81,12 +112,14 @@ export async function patchRunMetadata(publicRunId: string, patch: Record<string
 }
 
 export async function listRuns(input: {
+	ownerUserId: string;
 	status?: RunStatus;
 	q?: string;
 	limit: number;
 	offset: number;
 }) {
 	const filters = [
+		eq(runs.ownerUserId, input.ownerUserId),
 		input.status ? eq(runs.status, input.status) : undefined,
 		input.q
 			? or(
@@ -137,16 +170,21 @@ export async function listRuns(input: {
 	return { runs: rows, total };
 }
 
-export async function getRunDashboardMetrics() {
+export async function getRunDashboardMetricsForUser(ownerUserId: string) {
 	const rows = await db
 		.select({ status: runs.status, total: count() })
 		.from(runs)
+		.where(eq(runs.ownerUserId, ownerUserId))
 		.groupBy(runs.status);
 	const warningRows = await db
 		.select({ total: count() })
 		.from(evaluationFindings)
+		.innerJoin(runs, eq(evaluationFindings.runId, runs.id))
 		.where(
-			or(eq(evaluationFindings.severity, 'warning'), eq(evaluationFindings.severity, 'error'))
+			and(
+				eq(runs.ownerUserId, ownerUserId),
+				or(eq(evaluationFindings.severity, 'warning'), eq(evaluationFindings.severity, 'error'))
+			)
 		);
 
 	const metrics = {

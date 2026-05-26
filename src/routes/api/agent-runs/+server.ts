@@ -1,10 +1,12 @@
 import { resolve } from '$app/paths';
 import { error } from '@sveltejs/kit';
 import { createAgentRun } from '$lib/server/agent-runner/service';
+import { requireUserId } from '$lib/server/auth';
 import { ok, parseJson } from '$lib/server/http';
 import { createAgentRunSchema } from '$lib/server/validation';
 
 export async function POST(event) {
+	const userId = requireUserId(event);
 	const input = await parseJson(event, createAgentRunSchema);
 	if (input.runMode === 'tool_agent' && (!input.credentialId || !input.model)) {
 		throw error(400, { message: 'Tool-agent runs require credentialId and model.' });
@@ -12,7 +14,7 @@ export async function POST(event) {
 	if (input.runMode === 'browser' && input.provider !== 'openai') {
 		throw error(400, { message: 'Browser runs currently require OpenAI.' });
 	}
-	const run = await createAgentRun(input);
+	const run = await createAgentRun({ ...input, ownerUserId: userId });
 	return ok(
 		{
 			run: {

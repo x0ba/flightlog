@@ -15,6 +15,13 @@
       "when": 1779753600000,
       "tag": "0001_provider_credentials",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779781177642,
+      "tag": "0002_quiet_nova",
+      "breakpoints": true
     }
   ]
 }
