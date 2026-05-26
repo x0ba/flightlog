@@ -139,7 +139,7 @@ export async function createRegressionRunForRepository(input: {
 			)
 			.orderBy(desc(regressionRuns.createdAt))
 			.limit(1);
-		if (existingRun) return { regressionRun: existingRun, suite };
+		if (existingRun) return { regressionRun: existingRun, suite, isNewRun: false };
 	}
 
 	const enabledCases = suite.cases.filter((testCase) => testCase.enabled);
@@ -175,7 +175,7 @@ export async function createRegressionRunForRepository(input: {
 		);
 	}
 
-	return { regressionRun, suite };
+	return { regressionRun, suite, isNewRun: true };
 }
 
 export function scheduleRegressionRun(regressionRunId: number) {

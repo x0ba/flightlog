@@ -142,6 +142,7 @@ async function startGithubRegressionRun(input: {
 		metadata: { installationId: input.installationId, source: 'github' }
 	});
 	if (!created) return;
+	if (!created.isNewRun) return;
 
 	const checkRunId = await createRegressionCheckRun({
 		installationId: input.installationId,
