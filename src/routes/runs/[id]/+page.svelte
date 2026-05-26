@@ -10,16 +10,19 @@
 	import { resolve } from '$app/paths';
 
 	let { data } = $props();
-	let run = $state(data.run);
-	let spans = $state([...data.spans]);
-	let events = $state([...data.events]);
-	let artifacts = $state([...data.artifacts]);
-	let evaluation = $state(data.evaluation);
-	let findings = $state([...data.findings]);
+	const initialData = readInitialData();
+	let run = $state(initialData.run);
+	let spans = $state([...initialData.spans]);
+	let events = $state([...initialData.events]);
+	let artifacts = $state([...initialData.artifacts]);
+	let evaluation = $state(initialData.evaluation);
+	let findings = $state([...initialData.findings]);
 	let selectedSequence = $state(0);
 	let userSelectedEvent = $state(false);
 	let connectionState = $state<'idle' | 'live' | 'reconnecting' | 'complete' | 'failed'>('idle');
-	let pendingApproval = $state<PendingApproval | undefined>(readPendingApproval(run.metadata));
+	let pendingApproval = $state<PendingApproval | undefined>(
+		readPendingApproval(initialData.run.metadata)
+	);
 	let approvalSubmitting = $state(false);
 	let infoOpen = $state(true);
 	let configOpen = $state(true);
@@ -46,12 +49,12 @@
 
 		source.addEventListener('snapshot', (event) => {
 			const snapshot = parseEventData<{
-				run: typeof data.run;
-				events: typeof data.events;
-				spans: typeof data.spans;
-				artifacts: typeof data.artifacts;
-				evaluation: typeof data.evaluation;
-				findings: typeof data.findings;
+				run: typeof initialData.run;
+				events: typeof initialData.events;
+				spans: typeof initialData.spans;
+				artifacts: typeof initialData.artifacts;
+				evaluation: typeof initialData.evaluation;
+				findings: typeof initialData.findings;
 			}>(event);
 			if (!snapshot) return;
 			run = snapshot.run;
@@ -63,23 +66,23 @@
 			pendingApproval = readPendingApproval(snapshot.run.metadata);
 		});
 		source.addEventListener('run', (event) => {
-			const nextRun = parseEventData<typeof data.run>(event);
+			const nextRun = parseEventData<typeof initialData.run>(event);
 			if (!nextRun) return;
 			run = nextRun;
 			pendingApproval = readPendingApproval(nextRun.metadata);
 		});
 		source.addEventListener('event', (event) => {
-			const nextEvent = parseEventData<(typeof data.events)[number]>(event);
+			const nextEvent = parseEventData<(typeof initialData.events)[number]>(event);
 			if (!nextEvent) return;
 			events = mergeByPublicId(events, nextEvent).sort((a, b) => a.sequence - b.sequence);
 		});
 		source.addEventListener('span', (event) => {
-			const nextSpan = parseEventData<(typeof data.spans)[number]>(event);
+			const nextSpan = parseEventData<(typeof initialData.spans)[number]>(event);
 			if (!nextSpan) return;
 			spans = mergeByPublicId(spans, nextSpan);
 		});
 		source.addEventListener('artifact', (event) => {
-			const artifact = parseEventData<(typeof data.artifacts)[number]>(event);
+			const artifact = parseEventData<(typeof initialData.artifacts)[number]>(event);
 			if (!artifact) return;
 			artifacts = mergeByPublicId(artifacts, artifact);
 		});
@@ -88,7 +91,7 @@
 			if (approval) pendingApproval = approval;
 		});
 		source.addEventListener('done', (event) => {
-			const payload = parseEventData<{ run: typeof data.run }>(event);
+			const payload = parseEventData<{ run: typeof initialData.run }>(event);
 			if (payload) run = payload.run;
 			connectionState = 'complete';
 			source.close();
@@ -221,6 +224,10 @@
 
 	function displayJson(value: unknown) {
 		return JSON.stringify(value, null, 2);
+	}
+
+	function readInitialData() {
+		return data;
 	}
 </script>
 
@@ -397,9 +404,7 @@
 						<Collapsible.Trigger
 							class="flex w-full cursor-pointer items-center gap-2 px-3 py-2 transition-colors hover:bg-secondary/30"
 						>
-							<span class="font-mono text-[10px] font-medium tracking-wider uppercase"
-								>Timing</span
-							>
+							<span class="font-mono text-[10px] font-medium tracking-wider uppercase">Timing</span>
 							<ChevronDown
 								class="ml-auto size-3 text-muted-foreground transition-transform duration-200 {timingOpen
 									? 'rotate-180'
@@ -497,8 +502,7 @@
 					class="overflow-hidden rounded-lg border border-status-running bg-card lg:col-start-1 lg:row-start-2"
 				>
 					<div class="flex items-center gap-2 border-b border-border px-4 py-2">
-						<span class="inline-block size-1.5 animate-pulse rounded-full bg-status-running"
-						></span>
+						<span class="inline-block size-1.5 animate-pulse rounded-full bg-status-running"></span>
 						<span class="font-mono text-xs font-medium">Approval Required</span>
 					</div>
 					<div class="flex flex-col gap-3 p-4 text-sm">
