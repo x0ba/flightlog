@@ -19,7 +19,7 @@ export async function GET(event) {
 			githubSha: detail.regressionRun.githubSha,
 			githubRef: detail.regressionRun.githubRef,
 			pullRequestNumber: detail.regressionRun.pullRequestNumber,
-			githubCheckRunId: detail.regressionRun.githubCheckRunId,
+			githubCheckRunId: detail.regressionRun.githubCheckRunId?.toString() ?? null,
 			startedAt: detail.regressionRun.startedAt,
 			completedAt: detail.regressionRun.completedAt
 		},
