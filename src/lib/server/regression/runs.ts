@@ -343,6 +343,13 @@ export async function completeRegressionCaseRun(input: {
 
 	const caseRun = detail.caseRuns.find((row) => row.testCase.publicId === input.casePublicId);
 	if (!caseRun) return undefined;
+	if (
+		caseRun.status === 'success' ||
+		caseRun.status === 'failed' ||
+		caseRun.status === 'skipped'
+	) {
+		return undefined;
+	}
 
 	const run = await findRun(input.runPublicId);
 	if (!run || run.ownerUserId !== input.ownerUserId) return undefined;
