@@ -174,7 +174,6 @@ export async function executeRegressionRun(regressionRunId: number) {
 		.limit(1);
 	if (
 		!regressionRun ||
-		regressionRun.status === 'running' ||
 		regressionRun.status === 'success' ||
 		regressionRun.status === 'failed' ||
 		regressionRun.status === 'cancelled'
@@ -347,6 +346,14 @@ export async function completeRegressionCaseRun(input: {
 }) {
 	const detail = await findRegressionRunForUser(input.regressionRunPublicId, input.ownerUserId);
 	if (!detail) return undefined;
+
+	if (
+		detail.regressionRun.status === 'cancelled' ||
+		detail.regressionRun.status === 'success' ||
+		detail.regressionRun.status === 'failed'
+	) {
+		return undefined;
+	}
 
 	const caseRun = detail.caseRuns.find((row) => row.testCase.publicId === input.casePublicId);
 	if (!caseRun) return undefined;
