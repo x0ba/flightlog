@@ -1,11 +1,13 @@
 import { ok, parseJson } from '$lib/server/http';
+import { requireUserId } from '$lib/server/auth';
 import { listRuns } from '$lib/server/runs';
 import { createTrace } from '$lib/server/traces';
 import { createTraceSchema, runStatusSchema } from '$lib/server/validation';
 
 export async function POST(event) {
+	const userId = requireUserId(event);
 	const input = await parseJson(event, createTraceSchema);
-	const trace = await createTrace(input);
+	const trace = await createTrace(userId, input);
 	return ok(
 		{
 			trace: {
@@ -18,11 +20,13 @@ export async function POST(event) {
 	);
 }
 
-export async function GET({ url }) {
+export async function GET(event) {
+	const userId = requireUserId(event);
+	const { url } = event;
 	const statusParam = url.searchParams.get('status');
 	const status = statusParam ? runStatusSchema.parse(statusParam) : undefined;
 	const q = url.searchParams.get('q') ?? undefined;
 	const limit = Math.min(Number(url.searchParams.get('limit') ?? 50), 100);
 	const offset = Number(url.searchParams.get('offset') ?? 0);
-	return ok(await listRuns({ status, q, limit, offset }));
+	return ok(await listRuns({ ownerUserId: userId, status, q, limit, offset }));
 }

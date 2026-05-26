@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { providerCredentials } from '$lib/server/db/schema';
 import { decryptSecret, encryptSecret } from '$lib/server/crypto/keys';
@@ -19,16 +19,20 @@ export const defaultTools = ['calculator.evaluate', 'web.fetchText', 'web.search
 type CreateCredentialInput = z.infer<typeof createProviderCredentialSchema>;
 type UpdateCredentialInput = z.infer<typeof updateProviderCredentialSchema>;
 
-export async function listProviderCredentials() {
-	const rows = await db.select().from(providerCredentials);
+export async function listProviderCredentials(ownerUserId: string) {
+	const rows = await db
+		.select()
+		.from(providerCredentials)
+		.where(eq(providerCredentials.ownerUserId, ownerUserId));
 	return rows.map(redactCredential);
 }
 
-export async function createProviderCredential(input: CreateCredentialInput) {
+export async function createProviderCredential(ownerUserId: string, input: CreateCredentialInput) {
 	const [row] = await db
 		.insert(providerCredentials)
 		.values({
 			publicId: publicId('cred'),
+			ownerUserId,
 			provider: input.provider,
 			label: input.label,
 			encryptedApiKey: encryptSecret(input.apiKey),
@@ -39,6 +43,7 @@ export async function createProviderCredential(input: CreateCredentialInput) {
 }
 
 export async function updateProviderCredential(
+	ownerUserId: string,
 	publicCredentialId: string,
 	input: UpdateCredentialInput
 ) {
@@ -54,27 +59,43 @@ export async function updateProviderCredential(
 	const [row] = await db
 		.update(providerCredentials)
 		.set(patch)
-		.where(eq(providerCredentials.publicId, publicCredentialId))
+		.where(
+			and(
+				eq(providerCredentials.publicId, publicCredentialId),
+				eq(providerCredentials.ownerUserId, ownerUserId)
+			)
+		)
 		.returning();
 	return row ? redactCredential(row) : undefined;
 }
 
-export async function deleteProviderCredential(publicCredentialId: string) {
+export async function deleteProviderCredential(ownerUserId: string, publicCredentialId: string) {
 	const [row] = await db
 		.delete(providerCredentials)
-		.where(eq(providerCredentials.publicId, publicCredentialId))
+		.where(
+			and(
+				eq(providerCredentials.publicId, publicCredentialId),
+				eq(providerCredentials.ownerUserId, ownerUserId)
+			)
+		)
 		.returning({ publicId: providerCredentials.publicId });
 	return row;
 }
 
 export async function getProviderApiKey(
+	ownerUserId: string,
 	publicCredentialId: string,
 	provider?: 'openai' | 'anthropic'
 ) {
 	const [row] = await db
 		.select()
 		.from(providerCredentials)
-		.where(eq(providerCredentials.publicId, publicCredentialId))
+		.where(
+			and(
+				eq(providerCredentials.publicId, publicCredentialId),
+				eq(providerCredentials.ownerUserId, ownerUserId)
+			)
+		)
 		.limit(1);
 	if (!row || !row.isEnabled) return undefined;
 	if (provider && row.provider !== provider) return undefined;

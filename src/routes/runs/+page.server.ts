@@ -1,4 +1,5 @@
-import { getRunDashboardMetrics, listRuns } from '$lib/server/runs';
+import { requireUserId } from '$lib/server/auth';
+import { getRunDashboardMetricsForUser, listRuns } from '$lib/server/runs';
 import {
 	defaultTools,
 	listProviderCredentials,
@@ -6,15 +7,17 @@ import {
 } from '$lib/server/provider-credentials';
 import { runStatusSchema } from '$lib/server/validation';
 
-export async function load({ url }) {
+export async function load(event) {
+	const userId = requireUserId(event);
+	const { url } = event;
 	const statusParam = url.searchParams.get('status');
 	const status = statusParam ? runStatusSchema.parse(statusParam) : undefined;
 	const q = url.searchParams.get('q') ?? undefined;
 	const [result, metrics] = await Promise.all([
-		listRuns({ status, q, limit: 50, offset: 0 }),
-		getRunDashboardMetrics()
+		listRuns({ ownerUserId: userId, status, q, limit: 50, offset: 0 }),
+		getRunDashboardMetricsForUser(userId)
 	]);
-	const credentials = await listProviderCredentials();
+	const credentials = await listProviderCredentials(userId);
 	return {
 		...result,
 		metrics,

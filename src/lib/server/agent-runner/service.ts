@@ -22,6 +22,7 @@ import type {
 	PendingApproval,
 	ReasoningItem,
 	RunMetadata,
+	RunRow,
 	SafetyCheck,
 	SnapshotPayload
 } from './types';
@@ -29,6 +30,7 @@ import type {
 const activeRuns = new Set<string>();
 
 export async function createAgentRun(input: {
+	ownerUserId: string;
 	prompt: string;
 	name?: string;
 	constraints?: string[];
@@ -50,6 +52,7 @@ export async function createAgentRun(input: {
 		input.model ||
 		(runMode === 'browser' ? env.OPENAI_AGENT_MODEL || 'computer-use-preview' : undefined);
 	const run = await createRun({
+		ownerUserId: input.ownerUserId,
 		goal: input.prompt,
 		name: input.name || titleFromPrompt(input.prompt),
 		agentName: runMode === 'browser' ? 'OpenAI computer-use' : `${provider} tool agent`,
@@ -83,9 +86,7 @@ export async function createAgentRun(input: {
 	return run;
 }
 
-export async function getRunSnapshot(publicRunId: string): Promise<SnapshotPayload | undefined> {
-	const run = await findRun(publicRunId);
-	if (!run) return undefined;
+export async function getRunSnapshot(run: RunRow): Promise<SnapshotPayload> {
 	const events = await listEvents(run.id);
 	const spans = await listSpans(run.id);
 	const artifactRows = await listArtifacts(run.id);
@@ -149,11 +150,15 @@ async function runAgent(publicRunId: string) {
 			});
 			const runningRun = await findRun(publicRunId);
 			if (runningRun) {
+				if (!runningRun.ownerUserId) {
+					throw new Error('Run is missing an owner user id; assign legacy runs before resuming.');
+				}
 				publishRunEvent(publicRunId, { type: 'run', data: runningRun });
 				await runToolAgent({
 					run: {
 						id: runningRun.id,
 						publicId: runningRun.publicId,
+						ownerUserId: runningRun.ownerUserId,
 						goal: runningRun.goal,
 						metadata: runningRun.metadata
 					},
@@ -414,7 +419,7 @@ async function completeRun(publicRunId: string, runId: number, response: OpenAIC
 		publishRunEvent(publicRunId, { type: 'done', data: { run: updated } });
 	}
 	const constraints = metadata?.constraints ?? [];
-	if (constraints.length) await evaluateRun(publicRunId, constraints);
+	if (constraints.length) await evaluateRun(publicRunId, undefined, constraints);
 }
 
 async function failRun(publicRunId: string, message: string) {
