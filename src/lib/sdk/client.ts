@@ -82,7 +82,6 @@ export class FlightLogClient {
 			githubRef?: string;
 			pullRequestNumber?: number;
 			metadata?: unknown;
-			executionMode?: 'automated' | 'external';
 		} = {}
 	) {
 		const response = await this.request<{ run: { id: string; status: string; pageUrl: string } }>(
