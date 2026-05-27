@@ -1,6 +1,7 @@
 import {
 	boolean,
 	bigint,
+	index,
 	integer,
 	jsonb,
 	pgEnum,
@@ -14,6 +15,7 @@ import { sql } from 'drizzle-orm';
 
 export const runStatusEnum = pgEnum('run_status', ['running', 'success', 'failed', 'cancelled']);
 export const providerEnum = pgEnum('provider', ['openai', 'anthropic', 'browserbase']);
+export const credentialAuthTypeEnum = pgEnum('credential_auth_type', ['api_key', 'chatgpt_oauth']);
 export const agentFrameworkEnum = pgEnum('agent_framework', [
 	'native',
 	'ai-sdk',
@@ -130,9 +132,12 @@ export const providerCredentials = pgTable('provider_credentials', {
 	publicId: text('public_id').notNull().unique(),
 	ownerUserId: text('owner_user_id').notNull(),
 	provider: providerEnum('provider').notNull(),
+	authType: credentialAuthTypeEnum('auth_type').notNull().default('api_key'),
 	label: text('label').notNull(),
-	encryptedApiKey: text('encrypted_api_key').notNull(),
-	keyPreview: text('key_preview').notNull(),
+	encryptedApiKey: text('encrypted_api_key'),
+	encryptedOAuthSession: text('encrypted_oauth_session'),
+	accountEmail: text('account_email'),
+	keyPreview: text('key_preview'),
 	browserbaseProjectId: text('browserbase_project_id'),
 	isEnabled: boolean('is_enabled').notNull().default(true),
 	createdAt: timestamp('created_at')
@@ -142,6 +147,22 @@ export const providerCredentials = pgTable('provider_credentials', {
 		.notNull()
 		.default(sql`CURRENT_TIMESTAMP`)
 });
+
+export const oauthConnectStates = pgTable(
+	'oauth_connect_states',
+	{
+		id: serial('id').primaryKey(),
+		state: text('state').notNull().unique(),
+		ownerUserId: text('owner_user_id').notNull(),
+		codeVerifier: text('code_verifier').notNull(),
+		label: text('label').notNull(),
+		expiresAt: timestamp('expires_at').notNull(),
+		createdAt: timestamp('created_at')
+			.notNull()
+			.default(sql`CURRENT_TIMESTAMP`)
+	},
+	(table) => [index('oauth_connect_states_expires_at_idx').on(table.expiresAt)]
+);
 
 export const agentRunConfigs = pgTable('agent_run_configs', {
 	id: serial('id').primaryKey(),

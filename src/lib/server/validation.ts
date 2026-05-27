@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const runStatusSchema = z.enum(['running', 'success', 'failed', 'cancelled']);
 export const providerSchema = z.enum(['openai', 'anthropic', 'browserbase']);
 export const agentProviderSchema = z.enum(['openai', 'anthropic']);
+export const credentialAuthTypeSchema = z.enum(['api_key', 'chatgpt_oauth']);
 
 const trimmedString = (max: number) => z.string().trim().min(1).max(max);
 const optionalTrimmedString = (max: number) => z.string().trim().min(1).max(max).optional();
@@ -165,6 +166,10 @@ export const approvalDecisionSchema = z.object({
 	approvalId: z.string().min(1),
 	decision: z.enum(['approved', 'rejected']),
 	note: z.string().optional()
+});
+
+export const chatgptOAuthConnectSchema = z.object({
+	label: providerLabelSchema
 });
 
 export const createProviderCredentialSchema = z

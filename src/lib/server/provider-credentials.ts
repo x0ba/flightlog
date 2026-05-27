@@ -35,6 +35,7 @@ export async function createProviderCredential(ownerUserId: string, input: Creat
 			publicId: publicId('cred'),
 			ownerUserId,
 			provider: input.provider,
+			authType: 'api_key',
 			label: input.label,
 			encryptedApiKey: encryptSecret(input.apiKey),
 			keyPreview: previewKey(input.apiKey),
@@ -66,7 +67,7 @@ export async function updateProviderCredential(
 	};
 	if (input.label !== undefined) patch.label = input.label;
 	if (input.isEnabled !== undefined) patch.isEnabled = input.isEnabled;
-	if (input.apiKey !== undefined) {
+	if (input.apiKey !== undefined && existing.authType === 'api_key') {
 		patch.encryptedApiKey = encryptSecret(input.apiKey);
 		patch.keyPreview = previewKey(input.apiKey);
 	}
@@ -118,6 +119,7 @@ export async function getProviderApiKey(
 		.limit(1);
 	if (!row || !row.isEnabled) return undefined;
 	if (provider && row.provider !== provider) return undefined;
+	if (row.authType !== 'api_key' || !row.encryptedApiKey) return undefined;
 	return {
 		credential: redactCredential(row),
 		apiKey: decryptSecret(row.encryptedApiKey),
@@ -129,8 +131,10 @@ function redactCredential(row: typeof providerCredentials.$inferSelect) {
 	return {
 		id: row.publicId,
 		provider: row.provider,
+		authType: row.authType,
 		label: row.label,
-		keyPreview: row.keyPreview,
+		accountEmail: row.accountEmail ?? undefined,
+		keyPreview: row.keyPreview ?? 'ChatGPT OAuth',
 		projectId: row.browserbaseProjectId ?? undefined,
 		isEnabled: row.isEnabled,
 		createdAt: row.createdAt,
