@@ -1,6 +1,7 @@
 import {
 	boolean,
 	bigint,
+	index,
 	integer,
 	jsonb,
 	pgEnum,
@@ -147,17 +148,21 @@ export const providerCredentials = pgTable('provider_credentials', {
 		.default(sql`CURRENT_TIMESTAMP`)
 });
 
-export const oauthConnectStates = pgTable('oauth_connect_states', {
-	id: serial('id').primaryKey(),
-	state: text('state').notNull().unique(),
-	ownerUserId: text('owner_user_id').notNull(),
-	codeVerifier: text('code_verifier').notNull(),
-	label: text('label').notNull(),
-	expiresAt: timestamp('expires_at').notNull(),
-	createdAt: timestamp('created_at')
-		.notNull()
-		.default(sql`CURRENT_TIMESTAMP`)
-});
+export const oauthConnectStates = pgTable(
+	'oauth_connect_states',
+	{
+		id: serial('id').primaryKey(),
+		state: text('state').notNull().unique(),
+		ownerUserId: text('owner_user_id').notNull(),
+		codeVerifier: text('code_verifier').notNull(),
+		label: text('label').notNull(),
+		expiresAt: timestamp('expires_at').notNull(),
+		createdAt: timestamp('created_at')
+			.notNull()
+			.default(sql`CURRENT_TIMESTAMP`)
+	},
+	(table) => [index('oauth_connect_states_expires_at_idx').on(table.expiresAt)]
+);
 
 export const agentRunConfigs = pgTable('agent_run_configs', {
 	id: serial('id').primaryKey(),

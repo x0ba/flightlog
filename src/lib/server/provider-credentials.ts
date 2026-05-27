@@ -67,7 +67,7 @@ export async function updateProviderCredential(
 	};
 	if (input.label !== undefined) patch.label = input.label;
 	if (input.isEnabled !== undefined) patch.isEnabled = input.isEnabled;
-	if (input.apiKey !== undefined) {
+	if (input.apiKey !== undefined && existing.authType === 'api_key') {
 		patch.encryptedApiKey = encryptSecret(input.apiKey);
 		patch.keyPreview = previewKey(input.apiKey);
 	}
