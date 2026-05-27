@@ -206,6 +206,11 @@ export const updateProviderCredentialSchema = z
 			value.isEnabled !== undefined,
 		{ message: 'At least one field is required.' }
 	);
+// Note: projectId is Browserbase-only; the service layer returns undefined
+// (mapped to 404 by the PATCH handler) if projectId is sent for a non-browserbase
+// credential. A superRefine here cannot check the persisted provider type, so
+// the service layer should return a typed error instead of undefined to allow
+// the handler to respond with 400 rather than 404.
 
 export const evaluationPolicySchema = z.object({
 	minScore: z.number().int().min(0).max(100).default(70),
