@@ -185,8 +185,12 @@
 		return 'API key';
 	}
 
-	function connectChatGptRedirect() {
+	function connectChatGpt() {
 		chatgptConnectError = '';
+		if (data.chatgptOAuthUseDeviceFlow) {
+			void startDeviceConnect();
+			return;
+		}
 		const label = encodeURIComponent(credentialLabel.trim() || 'ChatGPT');
 		window.location.href = `/api/auth/openai/connect?label=${label}`;
 	}
@@ -313,6 +317,10 @@
 	$effect(() => {
 		const params = page.url.searchParams;
 		if (params.get('keys') === 'open') keysOpen = true;
+		if (params.get('chatgpt') === 'device' && data.chatgptOAuthUseDeviceFlow) {
+			addProviderTab = 'chatgpt';
+			if (!deviceAuth && !connectingChatGpt) void startDeviceConnect();
+		}
 		if (params.get('connected') === '1') {
 			const connectedId = params.get('credentialId');
 			if (connectedId) credentialId = connectedId;
@@ -852,27 +860,29 @@
 					</Tabs.Content>
 					<Tabs.Content value="chatgpt" class="mt-0 flex flex-col gap-2">
 						<p class="text-xs text-muted-foreground">
-							Use a ChatGPT subscription for OpenAI-backed runs. Device sign-in works when a browser
-							redirect is unavailable.
+							Use a ChatGPT subscription for OpenAI-backed runs. Sign-in opens OpenAI in a new tab
+							and completes here with a one-time code.
 						</p>
 						<Input class="text-xs" bind:value={credentialLabel} placeholder="Label (optional)" />
 						<Button
 							type="button"
 							class="h-9"
 							disabled={connectingChatGpt}
-							onclick={connectChatGptRedirect}
+							onclick={connectChatGpt}
 						>
 							{connectingChatGpt ? 'Connecting…' : 'Connect with ChatGPT'}
 						</Button>
-						<Button
-							type="button"
-							variant="outline"
-							class="h-9"
-							disabled={connectingChatGpt}
-							onclick={startDeviceConnect}
-						>
-							Sign in with device code
-						</Button>
+						{#if !data.chatgptOAuthUseDeviceFlow}
+							<Button
+								type="button"
+								variant="outline"
+								class="h-9"
+								disabled={connectingChatGpt}
+								onclick={startDeviceConnect}
+							>
+								Sign in with device code
+							</Button>
+						{/if}
 						{#if chatgptConnectError && addProviderTab === 'chatgpt'}
 							<p class="text-xs text-destructive">{chatgptConnectError}</p>
 						{/if}
