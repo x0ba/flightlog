@@ -7,7 +7,9 @@
 	let { children, data } = $props();
 
 	let useShell = $derived(
-		!page.url.pathname.startsWith('/sign-in') && !page.url.pathname.startsWith('/sign-up')
+		page.url.pathname !== '/' &&
+			!page.url.pathname.startsWith('/sign-in') &&
+			!page.url.pathname.startsWith('/sign-up')
 	);
 </script>
 
