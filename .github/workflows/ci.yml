@@ -33,6 +33,6 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run db:push -- --force
-      - run: bun run lint
       - run: bun run check
       - run: bun run test
+      - run: bun run lint

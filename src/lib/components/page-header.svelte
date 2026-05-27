@@ -1,7 +1,12 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { ChevronRight } from '@lucide/svelte';
 
 	type Crumb = { label: string; href?: string };
+
+	function resolveRoute(path: string) {
+		return resolve(path as '/runs');
+	}
 
 	let {
 		eyebrow,
@@ -28,7 +33,7 @@
 			>
 				{#each breadcrumbs as crumb, i (crumb.label)}
 					{#if crumb.href}
-						<a class="transition-colors hover:text-foreground" href={crumb.href}>
+						<a class="transition-colors hover:text-foreground" href={resolveRoute(crumb.href)}>
 							{crumb.label}
 						</a>
 					{:else}

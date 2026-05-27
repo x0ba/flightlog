@@ -16,6 +16,7 @@ export async function resetDatabase() {
 			regression_suites,
 			provider_credentials,
 			github_installations,
+			agent_run_configs,
 			runs
 		restart identity cascade
 	`);

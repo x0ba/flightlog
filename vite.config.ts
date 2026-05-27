@@ -8,9 +8,10 @@ export default defineConfig({
 		noExternal: ['bits-ui']
 	},
 	test: {
-		include: ['src/**/*.test.ts', 'src/**/*.integration.test.ts', 'test/**/*.test.ts'],
+		include: ['src/**/*.test.ts', 'test/**/*.test.ts'],
 		setupFiles: ['test/setup.ts'],
 		environment: 'node',
-		pool: 'forks'
+		pool: 'forks',
+		fileParallelism: false
 	}
 });
