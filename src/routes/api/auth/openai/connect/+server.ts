@@ -3,12 +3,11 @@ import { requireUserId } from '$lib/server/auth';
 import {
 	buildAuthorizationUrl,
 	generateCodeVerifier,
+	OAUTH_STATE_COOKIE,
 	readOpenAIOAuthConfig,
 	shouldUseDeviceAuth
 } from '$lib/server/openai-oauth';
 import { createRedirectConnectState } from '$lib/server/openai-oauth/connect-state';
-
-export const OAUTH_STATE_COOKIE = 'fl_openai_oauth_state';
 
 export async function GET(event) {
 	const userId = requireUserId(event);

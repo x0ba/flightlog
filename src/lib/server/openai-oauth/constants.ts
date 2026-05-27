@@ -14,5 +14,6 @@ export const ID_TOKEN_TYPE = 'urn:ietf:params:oauth:token-type:id_token';
 export const REFRESH_MARGIN_SECONDS = 60;
 export const DEFAULT_EXPIRES_IN_SECONDS = 3600;
 export const OAUTH_CONNECT_TTL_MS = 10 * 60 * 1000;
+export const OAUTH_STATE_COOKIE = 'fl_openai_oauth_state';
 export const DEVICE_CODE_MAX_WAIT_MS = 15 * 60 * 1000;
 export const DEVICE_CODE_DEFAULT_POLL_MS = 5000;

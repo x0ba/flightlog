@@ -3,12 +3,12 @@ import { requireUserId } from '$lib/server/auth';
 import { createChatGptOAuthCredential } from '$lib/server/provider-credentials';
 import {
 	completeAuthorizationCodeLogin,
+	OAUTH_STATE_COOKIE,
 	OAuthAuthorizationError,
 	readOpenAIOAuthConfig
 } from '$lib/server/openai-oauth';
 import { deleteConnectState, readConnectState } from '$lib/server/openai-oauth/connect-state';
 import { emailFromIdToken, sessionFromTokenResponse } from '$lib/server/openai-oauth/session';
-import { OAUTH_STATE_COOKIE } from '../connect/+server';
 
 export async function GET(event) {
 	const userId = requireUserId(event);
