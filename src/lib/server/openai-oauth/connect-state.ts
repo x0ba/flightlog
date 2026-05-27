@@ -1,7 +1,7 @@
 import { eq, lt } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { oauthConnectStates } from '$lib/server/db/schema';
-import { OAUTH_CONNECT_TTL_MS } from './constants';
+import { DEVICE_CODE_MAX_WAIT_MS, OAUTH_CONNECT_TTL_MS } from './constants';
 import { generateOAuthState } from './pkce';
 
 export async function createRedirectConnectState(input: {
@@ -29,7 +29,7 @@ export async function createDeviceConnectState(input: {
 	pollIntervalMs: number;
 }) {
 	const state = `device:${input.deviceAuthId}`;
-	const expiresAt = new Date(Date.now() + OAUTH_CONNECT_TTL_MS);
+	const expiresAt = new Date(Date.now() + DEVICE_CODE_MAX_WAIT_MS);
 	await db.insert(oauthConnectStates).values({
 		state,
 		ownerUserId: input.ownerUserId,
