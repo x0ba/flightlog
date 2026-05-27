@@ -8,6 +8,7 @@
 	import * as Select from '$lib/components/ui/select';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import * as Dialog from '$lib/components/ui/dialog';
+	import * as Tabs from '$lib/components/ui/tabs';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Play, Search, Plus, KeyRound, Terminal, Trash2, ExternalLink } from '@lucide/svelte';
 	import { goto, invalidateAll } from '$app/navigation';
@@ -41,7 +42,7 @@
 	let credentials = $state(initialForm.credentials);
 	let newRunOpen = $state(false);
 	let keysOpen = $state(false);
-	let showApiKeyForm = $state(false);
+	let addProviderTab = $state<'api_key' | 'chatgpt'>('api_key');
 	let connectingChatGpt = $state(false);
 	let chatgptConnectError = $state('');
 	let connectNotice = $state('');
@@ -105,10 +106,12 @@
 
 	async function saveCredential() {
 		credentialError = '';
-		if (!credentialLabel.trim() || !credentialKey.trim()) {
-			credentialError = 'Enter a label and API key.';
+		if (!credentialKey.trim()) {
+			credentialError = 'Enter an API key.';
 			return;
 		}
+		const label =
+			credentialLabel.trim() || `${credentialProviderLabel(credentialProvider)} API key`;
 		if (credentialProvider === 'browserbase' && !credentialProjectId.trim()) {
 			credentialError = 'Enter a Browserbase project ID.';
 			return;
@@ -118,7 +121,7 @@
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify({
 				provider: credentialProvider,
-				label: credentialLabel.trim(),
+				label,
 				apiKey: credentialKey.trim(),
 				...(credentialProvider === 'browserbase' && credentialProjectId.trim()
 					? { projectId: credentialProjectId.trim() }
@@ -139,6 +142,7 @@
 		credentialLabel = '';
 		credentialKey = '';
 		credentialProjectId = '';
+		connectNotice = `${payload.credential.label} saved.`;
 	}
 
 	async function deleteCredential(id: string) {
@@ -173,7 +177,12 @@
 			const account = credential.accountEmail ?? credential.keyPreview;
 			return `ChatGPT · ${account}`;
 		}
-		return `${credential.provider} · ${credential.keyPreview}`;
+		return `${credentialProviderLabel(credential.provider)} · ${credential.keyPreview}`;
+	}
+
+	function credentialAuthBadge(credential: SavedCredential) {
+		if (credential.authType === 'chatgpt_oauth') return 'ChatGPT';
+		return 'API key';
 	}
 
 	function connectChatGptRedirect() {
@@ -243,7 +252,7 @@
 			}
 			credentials = [...credentials, payload.credential];
 			credentialId = payload.credential.id;
-			connectNotice = 'ChatGPT connected.';
+			connectNotice = `${payload.credential.label} connected.`;
 			deviceModalOpen = false;
 			deviceAuth = null;
 		} catch {
@@ -307,7 +316,7 @@
 		if (params.get('connected') === '1') {
 			const connectedId = params.get('credentialId');
 			if (connectedId) credentialId = connectedId;
-			connectNotice = 'ChatGPT connected.';
+			connectNotice = 'Provider connected.';
 			void invalidateAll();
 		}
 	});
@@ -332,7 +341,7 @@
 		{#snippet actions()}
 			<Button variant="outline" class="h-9 gap-1.5" onclick={() => (keysOpen = true)} type="button">
 				<KeyRound class="size-3.5" />
-				Provider keys
+				Providers
 				<span class="ml-1 font-mono text-[10px] text-muted-foreground">{credentials.length}</span>
 			</Button>
 			<Button class="h-9 gap-1.5" onclick={() => (newRunOpen = true)} type="button">
@@ -737,10 +746,10 @@
 <Sheet.Root bind:open={keysOpen}>
 	<Sheet.Content class="w-full overflow-y-auto sm:max-w-md">
 		<Sheet.Header class="px-6 pt-6">
-			<Sheet.Title class="tracking-tight">Provider keys</Sheet.Title>
+			<Sheet.Title class="tracking-tight">Providers</Sheet.Title>
 			<Sheet.Description>
-				Connect ChatGPT for subscription-backed runs, or save platform API keys. Secrets are
-				encrypted at rest and only shown as masked previews.
+				Add platform API keys or sign in with ChatGPT. Secrets are encrypted at rest and only shown
+				as masked previews.
 			</Sheet.Description>
 		</Sheet.Header>
 		<div class="flex flex-col gap-5 px-6 pt-4 pb-6">
@@ -760,9 +769,9 @@
 							<div class="min-w-0">
 								<div class="flex items-center gap-2">
 									<p class="truncate text-sm font-medium">{credential.label}</p>
-									{#if credential.authType === 'chatgpt_oauth'}
-										<Badge variant="secondary" class="h-5 px-1.5 text-[10px]">ChatGPT</Badge>
-									{/if}
+									<Badge variant="secondary" class="h-5 px-1.5 text-[10px]">
+										{credentialAuthBadge(credential)}
+									</Badge>
 								</div>
 								<p class="font-mono text-[11px] text-muted-foreground">
 									{credentialSummary(credential)}
@@ -785,84 +794,91 @@
 				{:else}
 					<div class="rounded-md border border-dashed border-border/60 bg-secondary/20 p-4">
 						<p class="text-xs text-muted-foreground">
-							No keys yet. Add one to launch dashboard runs.
+							No providers yet. Add an API key or ChatGPT account to launch dashboard runs.
 						</p>
 					</div>
 				{/if}
 			</div>
 
 			<div class="flex flex-col gap-3 border-t border-border/60 pt-5">
-				<Label class="text-xs">Connect OpenAI</Label>
-				<Input class="text-xs" bind:value={credentialLabel} placeholder="Label (optional)" />
-				<Button
-					type="button"
-					class="h-9"
-					disabled={connectingChatGpt}
-					onclick={connectChatGptRedirect}
-				>
-					{connectingChatGpt ? 'Connecting…' : 'Connect with ChatGPT'}
-				</Button>
-				<Button
-					type="button"
-					variant="outline"
-					class="h-9"
-					disabled={connectingChatGpt}
-					onclick={startDeviceConnect}
-				>
-					Sign in with device code
-				</Button>
-				{#if chatgptConnectError}
-					<p class="text-xs text-destructive">{chatgptConnectError}</p>
-				{/if}
-				<button
-					type="button"
-					class="text-left text-xs text-muted-foreground underline-offset-4 hover:underline"
-					onclick={() => (showApiKeyForm = !showApiKeyForm)}
-				>
-					{showApiKeyForm ? 'Hide API key form' : 'Paste platform API key instead'}
-				</button>
-			</div>
-
-			{#if showApiKeyForm}
-				<div class="flex flex-col gap-2 border-t border-border/60 pt-5">
-					<Label class="text-xs">Add API key</Label>
-					<div class="grid grid-cols-2 gap-2">
-						<Select.Root
-							type="single"
-							value={credentialProvider}
-							onValueChange={(v) => {
-								if (v) {
-									credentialProvider = v as typeof credentialProvider;
-									credentialProjectId = '';
-								}
-							}}
-						>
-							<Select.Trigger class="w-full">
-								{credentialProviderLabel(credentialProvider)}
-							</Select.Trigger>
-							<Select.Content>
-								<Select.Item value="openai" label="OpenAI">OpenAI</Select.Item>
-								<Select.Item value="anthropic" label="Anthropic">Anthropic</Select.Item>
-								<Select.Item value="browserbase" label="Browserbase">Browserbase</Select.Item>
-							</Select.Content>
-						</Select.Root>
-						<Input class="text-xs" bind:value={credentialLabel} placeholder="Label" />
-					</div>
-					{#if credentialProvider === 'browserbase'}
+				<Label class="text-xs">Add provider</Label>
+				<Tabs.Root bind:value={addProviderTab} class="flex flex-col gap-3">
+					<Tabs.List class="grid w-full grid-cols-2">
+						<Tabs.Trigger value="api_key" class="text-xs">API key</Tabs.Trigger>
+						<Tabs.Trigger value="chatgpt" class="text-xs">ChatGPT</Tabs.Trigger>
+					</Tabs.List>
+					<Tabs.Content value="api_key" class="mt-0 flex flex-col gap-2">
+						<div class="grid grid-cols-2 gap-2">
+							<Select.Root
+								type="single"
+								value={credentialProvider}
+								onValueChange={(v) => {
+									if (v) {
+										credentialProvider = v as typeof credentialProvider;
+										credentialProjectId = '';
+									}
+								}}
+							>
+								<Select.Trigger class="w-full">
+									{credentialProviderLabel(credentialProvider)}
+								</Select.Trigger>
+								<Select.Content>
+									<Select.Item value="openai" label="OpenAI">OpenAI</Select.Item>
+									<Select.Item value="anthropic" label="Anthropic">Anthropic</Select.Item>
+									<Select.Item value="browserbase" label="Browserbase">Browserbase</Select.Item>
+								</Select.Content>
+							</Select.Root>
+							<Input class="text-xs" bind:value={credentialLabel} placeholder="Label (optional)" />
+						</div>
+						{#if credentialProvider === 'browserbase'}
+							<Input
+								class="text-xs"
+								bind:value={credentialProjectId}
+								placeholder="Project ID (required)"
+								autocomplete="off"
+							/>
+						{/if}
 						<Input
 							class="text-xs"
-							bind:value={credentialProjectId}
-							placeholder="Project ID (required)"
+							type="password"
+							bind:value={credentialKey}
+							placeholder="API key"
 							autocomplete="off"
 						/>
-					{/if}
-					<Input class="text-xs" type="password" bind:value={credentialKey} placeholder="API key" />
-					<Button type="button" onclick={saveCredential}>Save encrypted key</Button>
-					{#if credentialError}
-						<p class="text-xs text-destructive">{credentialError}</p>
-					{/if}
-				</div>
-			{/if}
+						<Button type="button" class="h-9" onclick={saveCredential}>Save API key</Button>
+						{#if credentialError && addProviderTab === 'api_key'}
+							<p class="text-xs text-destructive">{credentialError}</p>
+						{/if}
+					</Tabs.Content>
+					<Tabs.Content value="chatgpt" class="mt-0 flex flex-col gap-2">
+						<p class="text-xs text-muted-foreground">
+							Use a ChatGPT subscription for OpenAI-backed runs. Device sign-in works when a browser
+							redirect is unavailable.
+						</p>
+						<Input class="text-xs" bind:value={credentialLabel} placeholder="Label (optional)" />
+						<Button
+							type="button"
+							class="h-9"
+							disabled={connectingChatGpt}
+							onclick={connectChatGptRedirect}
+						>
+							{connectingChatGpt ? 'Connecting…' : 'Connect with ChatGPT'}
+						</Button>
+						<Button
+							type="button"
+							variant="outline"
+							class="h-9"
+							disabled={connectingChatGpt}
+							onclick={startDeviceConnect}
+						>
+							Sign in with device code
+						</Button>
+						{#if chatgptConnectError && addProviderTab === 'chatgpt'}
+							<p class="text-xs text-destructive">{chatgptConnectError}</p>
+						{/if}
+					</Tabs.Content>
+				</Tabs.Root>
+			</div>
 		</div>
 	</Sheet.Content>
 </Sheet.Root>
@@ -881,7 +897,9 @@
 			<div class="grid gap-3 py-2">
 				<div class="rounded-md border border-border/60 bg-secondary/20 px-3 py-2">
 					<p class="text-xs text-muted-foreground">Your code</p>
-					<p class="font-mono text-2xl font-semibold tracking-widest">{activeDeviceAuth.userCode}</p>
+					<p class="font-mono text-2xl font-semibold tracking-widest">
+						{activeDeviceAuth.userCode}
+					</p>
 				</div>
 				<Button
 					variant="outline"

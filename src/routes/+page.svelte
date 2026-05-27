@@ -175,7 +175,7 @@ jobs:
 		<p>FlightLog · agent observability</p>
 		<div>
 			<a href="https://github.com/x0ba/flightlog">GitHub</a>
-			<a href={resolve('/docs')}>Docs</a>
+			<a href="https://github.com/x0ba/flightlog/blob/main/README.md">Docs</a>
 			<a href={resolve('/runs')}>Dashboard</a>
 		</div>
 	</footer>

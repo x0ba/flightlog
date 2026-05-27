@@ -12,15 +12,8 @@ import {
 
 type ProviderCredentialRow = typeof providerCredentials.$inferSelect;
 
-export async function resolveOpenAICredential(
-	ownerUserId: string,
-	row: ProviderCredentialRow
-) {
-	if (
-		!row.isEnabled ||
-		row.ownerUserId !== ownerUserId ||
-		row.provider !== 'openai'
-	) {
+export async function resolveOpenAICredential(ownerUserId: string, row: ProviderCredentialRow) {
+	if (!row.isEnabled || row.ownerUserId !== ownerUserId || row.provider !== 'openai') {
 		return undefined;
 	}
 
