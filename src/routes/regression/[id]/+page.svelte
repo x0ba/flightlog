@@ -4,9 +4,13 @@
 	import { Label } from '$lib/components/ui/label';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import * as Table from '$lib/components/ui/table';
+	import * as Sheet from '$lib/components/ui/sheet';
 	import { Play, Plus } from '@lucide/svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import PageHeader from '$lib/components/page-header.svelte';
+	import Section from '$lib/components/section.svelte';
+	import StatusPill from '$lib/components/status-pill.svelte';
 
 	let { data } = $props();
 	let caseName = $state('');
@@ -16,6 +20,7 @@
 	let creatingCase = $state(false);
 	let startingRun = $state(false);
 	let error = $state('');
+	let addCaseOpen = $state(false);
 
 	async function addCase() {
 		error = '';
@@ -43,6 +48,7 @@
 			goal = '';
 			constraints = '';
 			minScore = 70;
+			addCaseOpen = false;
 			await goto(resolve(`/regression/${data.suite.publicId}`), { invalidateAll: true });
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : 'Could not add regression case.';
@@ -71,124 +77,139 @@
 	}
 </script>
 
-<svelte:head><title>{data.suite.name} | FlightLog</title></svelte:head>
+<svelte:head><title>{data.suite.name} · FlightLog</title></svelte:head>
 
-<main class="min-h-screen bg-background">
-	<div class="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-5 sm:px-6 lg:px-8">
-		<header class="flex flex-wrap items-start justify-between gap-4">
-			<div>
-				<a
-					class="font-mono text-xs text-muted-foreground hover:underline"
-					href={resolve('/regression')}
-				>
-					Regression Suites
-				</a>
-				<h1 class="mt-1 font-mono text-sm font-semibold tracking-wider uppercase">
-					{data.suite.name}
-				</h1>
-				<p class="mt-1 font-mono text-xs text-muted-foreground">
+<div class="mx-auto w-full max-w-6xl px-6 py-10 lg:px-10">
+	<PageHeader
+		title={data.suite.name}
+		description={data.suite.description ?? undefined}
+		breadcrumbs={[{ label: 'Regression', href: '/regression' }, { label: data.suite.name }]}
+	>
+		{#snippet meta()}
+			<div class="flex flex-wrap items-center gap-3 font-mono text-[11px] text-muted-foreground">
+				<span class="inline-flex items-center gap-1.5">
+					<span class="size-1 rounded-full bg-muted-foreground/60"></span>
 					{data.suite.repositoryOwner}/{data.suite.repositoryName}
-				</p>
-				{#if data.suite.description}
-					<p class="mt-2 text-xs text-muted-foreground">{data.suite.description}</p>
-				{/if}
+				</span>
+				<span class="text-muted-foreground/40">·</span>
+				<span>{data.suite.cases.length} case{data.suite.cases.length === 1 ? '' : 's'}</span>
 			</div>
+		{/snippet}
+		{#snippet actions()}
 			<Button
-				class="h-8 text-xs"
+				variant="outline"
+				class="h-9 gap-1.5"
+				onclick={() => (addCaseOpen = true)}
+				type="button"
+			>
+				<Plus class="size-3.5" />
+				Add case
+			</Button>
+			<Button
+				class="h-9 gap-1.5"
 				disabled={startingRun || !data.suite.cases.length}
 				onclick={startRun}
 			>
-				<Play class="mr-1.5 size-3.5" />
-				{startingRun ? 'Starting…' : 'Run suite now'}
+				<Play class="size-3.5" />
+				{startingRun ? 'Starting…' : 'Run suite'}
 			</Button>
-		</header>
+		{/snippet}
+	</PageHeader>
 
-		<div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-			<div class="overflow-hidden rounded-lg border border-border bg-card">
-				<div class="border-b border-border px-4 py-2.5">
-					<h2 class="font-mono text-xs font-medium">Cases</h2>
-				</div>
+	<div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+		<Section title="Cases" padded={false}>
+			{#snippet children()}
 				{#if data.suite.cases.length}
 					<Table.Root>
 						<Table.Header>
-							<Table.Row>
-								<Table.Head class="font-mono text-xs">Name</Table.Head>
-								<Table.Head class="font-mono text-xs">Goal</Table.Head>
-								<Table.Head class="font-mono text-xs">Min Score</Table.Head>
+							<Table.Row class="border-border/60 hover:bg-transparent">
+								<Table.Head class="pl-5 text-xs text-muted-foreground">Name</Table.Head>
+								<Table.Head class="text-xs text-muted-foreground">Goal</Table.Head>
+								<Table.Head class="pr-5 text-xs text-muted-foreground">Min score</Table.Head>
 							</Table.Row>
 						</Table.Header>
 						<Table.Body>
 							{#each data.suite.cases as testCase (testCase.publicId)}
-								<Table.Row>
-									<Table.Cell class="font-mono text-xs">{testCase.name}</Table.Cell>
+								<Table.Row class="border-border/60">
+									<Table.Cell class="pl-5 text-sm font-medium tracking-tight"
+										>{testCase.name}</Table.Cell
+									>
 									<Table.Cell class="max-w-md truncate text-xs text-muted-foreground">
 										{testCase.goal}
 									</Table.Cell>
-									<Table.Cell class="font-mono text-xs">{testCase.minScore}</Table.Cell>
+									<Table.Cell class="pr-5 font-mono text-xs">{testCase.minScore}</Table.Cell>
 								</Table.Row>
 							{/each}
 						</Table.Body>
 					</Table.Root>
 				{:else}
-					<p class="p-6 text-xs text-muted-foreground">Add at least one case to run this suite.</p>
-				{/if}
-			</div>
-
-			<div class="space-y-4">
-				<div class="rounded-lg border border-border bg-card p-4">
-					<div class="mb-4 flex items-center gap-2">
-						<Plus class="size-3.5 text-primary" />
-						<h2 class="font-mono text-xs font-medium">Add Case</h2>
-					</div>
-					<div class="space-y-3">
-						<div class="space-y-1.5">
-							<Label class="font-mono text-xs">Name</Label>
-							<Input bind:value={caseName} class="h-8 font-mono text-xs" />
-						</div>
-						<div class="space-y-1.5">
-							<Label class="font-mono text-xs">Goal</Label>
-							<Textarea bind:value={goal} class="min-h-20 font-mono text-xs" />
-						</div>
-						<div class="space-y-1.5">
-							<Label class="font-mono text-xs">Constraints (one per line)</Label>
-							<Textarea bind:value={constraints} class="min-h-16 font-mono text-xs" />
-						</div>
-						<div class="space-y-1.5">
-							<Label class="font-mono text-xs">Minimum score</Label>
-							<Input
-								bind:value={minScore}
-								class="h-8 font-mono text-xs"
-								type="number"
-								min="0"
-								max="100"
-							/>
-						</div>
-						{#if error}
-							<p class="font-mono text-xs text-destructive">{error}</p>
-						{/if}
-						<Button class="h-8 w-full text-xs" disabled={creatingCase} onclick={addCase}>
-							{creatingCase ? 'Adding…' : 'Add case'}
+					<div class="px-6 py-12 text-center">
+						<p class="text-sm font-medium tracking-tight">No cases yet</p>
+						<p class="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
+							Add at least one goal-based case before running this suite.
+						</p>
+						<Button class="mt-4 h-8 gap-1.5" onclick={() => (addCaseOpen = true)}>
+							<Plus class="size-3.5" />
+							Add case
 						</Button>
 					</div>
-				</div>
+				{/if}
+			{/snippet}
+		</Section>
 
-				<div class="rounded-lg border border-border bg-card p-4">
-					<h2 class="font-mono text-xs font-medium">Recent Runs</h2>
-					<div class="mt-3 space-y-2">
-						{#each data.runs as run (run.publicId)}
-							<a
-								class="flex items-center justify-between rounded-md border border-border px-3 py-2 font-mono text-xs transition-colors hover:bg-secondary/40"
-								href={resolve(`/regression/runs/${run.publicId}`)}
+		<Section title="Recent runs">
+			{#snippet children()}
+				<div class="flex flex-col gap-1.5">
+					{#each data.runs as run (run.publicId)}
+						<a
+							class="flex items-center justify-between rounded-md border border-border/60 bg-background px-3 py-2.5 transition-colors hover:bg-secondary/40"
+							href={resolve(`/regression/runs/${run.publicId}`)}
+						>
+							<StatusPill status={run.status} />
+							<span class="font-mono text-xs text-muted-foreground"
+								>{run.aggregateScore ?? '—'}</span
 							>
-								<span>{run.status}</span>
-								<span class="text-muted-foreground">{run.aggregateScore ?? '—'}</span>
-							</a>
-						{:else}
-							<p class="text-xs text-muted-foreground">No runs yet.</p>
-						{/each}
-					</div>
+						</a>
+					{:else}
+						<p class="text-xs text-muted-foreground">No runs yet.</p>
+					{/each}
 				</div>
-			</div>
-		</div>
+			{/snippet}
+		</Section>
 	</div>
-</main>
+</div>
+
+<Sheet.Root bind:open={addCaseOpen}>
+	<Sheet.Content class="w-full overflow-y-auto sm:max-w-md">
+		<Sheet.Header class="px-6 pt-6">
+			<Sheet.Title class="tracking-tight">Add regression case</Sheet.Title>
+			<Sheet.Description>
+				A goal the agent should accomplish, with optional constraints and a minimum score.
+			</Sheet.Description>
+		</Sheet.Header>
+		<div class="flex flex-col gap-4 px-6 pt-4 pb-6">
+			<div class="grid gap-2">
+				<Label class="text-xs">Name</Label>
+				<Input bind:value={caseName} placeholder="Find pricing without checkout" />
+			</div>
+			<div class="grid gap-2">
+				<Label class="text-xs">Goal</Label>
+				<Textarea bind:value={goal} class="min-h-24 text-sm" />
+			</div>
+			<div class="grid gap-2">
+				<Label class="text-xs">Constraints (one per line)</Label>
+				<Textarea bind:value={constraints} class="min-h-20 text-sm" />
+			</div>
+			<div class="grid gap-2">
+				<Label class="text-xs">Minimum score</Label>
+				<Input bind:value={minScore} type="number" min="0" max="100" />
+			</div>
+			{#if error}
+				<p class="text-xs text-destructive">{error}</p>
+			{/if}
+			<Button class="mt-1" disabled={creatingCase} onclick={addCase}>
+				{creatingCase ? 'Adding…' : 'Add case'}
+			</Button>
+		</div>
+	</Sheet.Content>
+</Sheet.Root>
