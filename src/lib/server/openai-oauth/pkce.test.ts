@@ -11,6 +11,7 @@ describe('openai-oauth pkce', () => {
 	it('produces stable S256 challenge', () => {
 		const verifier = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~';
 		const challenge = generateCodeChallenge(verifier);
+		expect(challenge).toBe('ImpiCd8pp4MveCNnbIS7-GXEtB0xF5HMIDoWqvGA5ig');
 		expect(challenge).toMatch(/^[A-Za-z0-9_-]+$/);
 		expect(challenge).not.toContain('=');
 		expect(generateCodeChallenge(verifier)).toBe(challenge);

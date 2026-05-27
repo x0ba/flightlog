@@ -30,14 +30,15 @@ type OAuthErrorBody = {
 };
 
 async function readOAuthError(response: Response) {
+	const text = await response.text();
 	try {
-		const body = (await response.json()) as OAuthErrorBody;
+		const body = JSON.parse(text) as OAuthErrorBody;
 		return {
 			code: body.error ?? 'oauth_error',
 			description: body.error_description
 		};
 	} catch {
-		return { code: 'oauth_error', description: await response.text() };
+		return { code: 'oauth_error', description: text };
 	}
 }
 
@@ -158,10 +159,7 @@ export type DeviceCodePollResponse = {
 	error_description?: string;
 };
 
-export async function pollDeviceCodeToken(input: {
-	deviceAuthId: string;
-	userCode: string;
-}) {
+export async function pollDeviceCodeToken(input: { deviceAuthId: string; userCode: string }) {
 	const response = await fetch(DEVICE_TOKEN_URL, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },

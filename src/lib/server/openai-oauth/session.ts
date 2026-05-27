@@ -32,7 +32,11 @@ export function sessionFromTokenResponse(
 }
 
 export function parseSessionJson(raw: string): OpenAIOAuthSession {
-	return JSON.parse(raw) as OpenAIOAuthSession;
+	const parsed: unknown = JSON.parse(raw);
+	if (!isOpenAIOAuthSession(parsed)) {
+		throw new Error('Invalid OpenAI OAuth session');
+	}
+	return parsed;
 }
 
 export function serializeSession(session: OpenAIOAuthSession) {
@@ -44,6 +48,21 @@ function shouldRefresh(session: OpenAIOAuthSession) {
 	const now = Date.now();
 	return (
 		now >= session.accessTokenExpiresAt - marginMs || now >= session.apiKeyExpiresAt - marginMs
+	);
+}
+
+function isOpenAIOAuthSession(value: unknown): value is OpenAIOAuthSession {
+	if (!value || typeof value !== 'object') return false;
+	const session = value as Record<string, unknown>;
+	return (
+		typeof session.clientId === 'string' &&
+		typeof session.accessToken === 'string' &&
+		typeof session.refreshToken === 'string' &&
+		typeof session.idToken === 'string' &&
+		typeof session.apiKey === 'string' &&
+		typeof session.accessTokenExpiresAt === 'number' &&
+		typeof session.apiKeyExpiresAt === 'number' &&
+		(session.accountEmail === undefined || typeof session.accountEmail === 'string')
 	);
 }
 
