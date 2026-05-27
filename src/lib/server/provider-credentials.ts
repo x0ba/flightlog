@@ -2,6 +2,11 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { providerCredentials } from '$lib/server/db/schema';
 import { decryptSecret, encryptSecret } from '$lib/server/crypto/keys';
+import {
+	emailFromIdToken,
+	serializeSession,
+	type OpenAIOAuthSession
+} from '$lib/server/openai-oauth/session';
 import { publicId } from '$lib/server/public-id';
 import type {
 	createProviderCredentialSchema,
@@ -40,6 +45,31 @@ export async function createProviderCredential(ownerUserId: string, input: Creat
 			encryptedApiKey: encryptSecret(input.apiKey),
 			keyPreview: previewKey(input.apiKey),
 			browserbaseProjectId: input.provider === 'browserbase' ? (input.projectId ?? null) : null
+		})
+		.returning();
+	return redactCredential(row);
+}
+
+export async function createChatGptOAuthCredential(
+	ownerUserId: string,
+	input: { label: string; session: OpenAIOAuthSession }
+) {
+	const accountEmail =
+		input.session.accountEmail ?? emailFromIdToken(input.session.idToken) ?? undefined;
+	const session = { ...input.session, accountEmail };
+	const [row] = await db
+		.insert(providerCredentials)
+		.values({
+			publicId: publicId('cred'),
+			ownerUserId,
+			provider: 'openai',
+			authType: 'chatgpt_oauth',
+			label: input.label.trim() || accountEmail || 'ChatGPT',
+			encryptedApiKey: encryptSecret(session.apiKey),
+			encryptedOAuthSession: encryptSecret(serializeSession(session)),
+			accountEmail: accountEmail ?? null,
+			keyPreview: oauthKeyPreview(accountEmail, session.apiKey),
+			browserbaseProjectId: null
 		})
 		.returning();
 	return redactCredential(row);
@@ -146,4 +176,15 @@ function previewKey(apiKey: string) {
 	const trimmed = apiKey.trim();
 	if (trimmed.length <= 4) return '••••';
 	return `...${trimmed.slice(-4)}`;
+}
+
+function oauthKeyPreview(accountEmail: string | undefined, apiKey: string) {
+	if (accountEmail) {
+		const [local, domain] = accountEmail.split('@');
+		if (!domain) return accountEmail;
+		const maskedLocal =
+			local.length <= 2 ? `${local[0] ?? ''}•` : `${local.slice(0, 2)}•••`;
+		return `${maskedLocal}@${domain}`;
+	}
+	return previewKey(apiKey);
 }

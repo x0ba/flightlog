@@ -46,7 +46,8 @@ export function isProtectedPath(pathname: string) {
 		pathname.startsWith('/api/agent-runs') ||
 		pathname.startsWith('/api/regression') ||
 		pathname.startsWith('/api/github/installations') ||
-		pathname.startsWith('/api/settings/providers')
+		pathname.startsWith('/api/settings/providers') ||
+		pathname.startsWith('/api/auth/openai')
 	);
 }
 

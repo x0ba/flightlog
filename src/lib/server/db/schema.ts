@@ -154,14 +154,21 @@ export const oauthConnectStates = pgTable(
 		id: serial('id').primaryKey(),
 		state: text('state').notNull().unique(),
 		ownerUserId: text('owner_user_id').notNull(),
-		codeVerifier: text('code_verifier').notNull(),
+		codeVerifier: text('code_verifier').notNull().default(''),
 		label: text('label').notNull(),
+		deviceAuthId: text('device_auth_id'),
+		userCode: text('user_code'),
+		pollIntervalMs: integer('poll_interval_ms'),
 		expiresAt: timestamp('expires_at').notNull(),
 		createdAt: timestamp('created_at')
 			.notNull()
 			.default(sql`CURRENT_TIMESTAMP`)
 	},
-	(table) => [index('oauth_connect_states_expires_at_idx').on(table.expiresAt)]
+	(table) => [
+		index('oauth_connect_states_expires_at_idx').on(table.expiresAt),
+		uniqueIndex('oauth_connect_states_state_idx').on(table.state),
+		uniqueIndex('oauth_connect_states_device_auth_id_idx').on(table.deviceAuthId)
+	]
 );
 
 export const agentRunConfigs = pgTable('agent_run_configs', {

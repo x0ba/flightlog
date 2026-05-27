@@ -1,4 +1,5 @@
 export * from './client';
+export * from './connect-state';
 export * from './config';
 export * from './constants';
 export * from './errors';
