@@ -36,10 +36,18 @@ export async function GET(event) {
 		throw error(408, { message: 'Device auth timed out. Start a new connection.' });
 	}
 
-	const poll = await pollDeviceCodeToken({
-		deviceAuthId,
-		userCode: connectState.userCode
-	});
+	let poll;
+	try {
+		poll = await pollDeviceCodeToken({
+			deviceAuthId,
+			userCode: connectState.userCode
+		});
+	} catch (cause) {
+		if (cause instanceof OAuthAuthorizationError) {
+			throw error(400, { message: cause.message });
+		}
+		throw cause;
+	}
 	if (poll.pending) {
 		return ok({
 			status: 'pending' as const,
