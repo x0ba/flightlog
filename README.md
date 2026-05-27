@@ -9,10 +9,22 @@ tests in GitHub Checks.
 
 ```sh
 bun install
+bun run db:up
 bun run db:push
 bun run check
 bun run lint
 ```
+
+### Database (local vs production)
+
+Use Docker Postgres locally and Neon in production. Both use the same `DATABASE_URL` variable; the app picks the driver from the hostname.
+
+1. Start local Postgres: `bun run db:up` (or `docker compose up -d postgres`).
+2. Set `DATABASE_URL` in `.env` to the local URL (see `.env.example`).
+3. Apply schema: `bun run db:push`.
+4. On Vercel (or other production), set `DATABASE_URL` to your Neon connection string.
+
+`drizzle-kit` uses the `pg` driver when `pg` is installed (required for local `db:push` / `db:migrate`). The Neon serverless driver is only used at runtime when the URL is not localhost.
 
 Required environment:
 
