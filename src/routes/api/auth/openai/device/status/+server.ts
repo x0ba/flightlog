@@ -9,10 +9,7 @@ import {
 	pollDeviceCodeToken,
 	readOpenAIOAuthConfig
 } from '$lib/server/openai-oauth';
-import {
-	deleteConnectState,
-	readDeviceConnectState
-} from '$lib/server/openai-oauth/connect-state';
+import { deleteConnectState, readDeviceConnectState } from '$lib/server/openai-oauth/connect-state';
 import { emailFromIdToken, sessionFromTokenResponse } from '$lib/server/openai-oauth/session';
 
 export async function GET(event) {

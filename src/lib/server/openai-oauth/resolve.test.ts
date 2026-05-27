@@ -84,9 +84,9 @@ describe('resolveOpenAICredential integration', () => {
 			new OAuthRefreshFailedError('invalid_grant', 'revoked')
 		);
 
-		await expect(getProviderApiKey('user_oauth_fail', credential.id, 'openai')).rejects.toBeInstanceOf(
-			OAuthRefreshFailedError
-		);
+		await expect(
+			getProviderApiKey('user_oauth_fail', credential.id, 'openai')
+		).rejects.toBeInstanceOf(OAuthRefreshFailedError);
 
 		const [row] = await db
 			.select()
