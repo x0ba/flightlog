@@ -48,6 +48,17 @@ FLIGHTLOG_AGENT_MAX_STEPS=20
 FLIGHTLOG_AGENT_APPROVAL_TIMEOUT_SECONDS=300
 ```
 
+Optional ChatGPT subscription OAuth (dashboard agent runs):
+
+```sh
+# Defaults to the public Codex CLI client in development only.
+OPENAI_OAUTH_CLIENT_ID=
+# e.g. https://your-app.example.com/api/auth/openai/callback
+OPENAI_OAUTH_REDIRECT_URI=
+# auto | on | off — device code when redirect is unavailable
+OPENAI_OAUTH_DEVICE_AUTH=auto
+```
+
 Optional GitHub App environment for PR regression checks:
 
 ```sh
@@ -63,13 +74,14 @@ required for dashboard access and API ingestion. Existing unowned local runs and
 credentials remain unowned until they are assigned through an explicit backfill.
 
 If `OPENAI_API_KEY` is missing, evaluations still run with deterministic rule checks. Browser-mode
-UI agent runs require `OPENAI_API_KEY` and `BROWSERBASE_API_KEY` because they use OpenAI computer use
-through the Responses API against Browserbase cloud browsers. Tool-agent dashboard runs use the
-encrypted OpenAI or Anthropic credential selected in the UI.
+UI agent runs use a saved OpenAI credential (ChatGPT subscription or platform API key) plus a
+Browserbase credential. Tool-agent dashboard runs use the encrypted OpenAI or Anthropic credential
+selected in the UI.
 
 ## UI Agent Runs
 
-Sign in with Clerk, open `/runs`, save an OpenAI or Anthropic provider key, choose a run mode,
+Sign in with Clerk, open `/runs`, connect ChatGPT (subscription) or save a platform API key for
+OpenAI/Anthropic, choose a run mode,
 provider, framework, model, and tools, then start a run. FlightLog creates a user-owned run, opens
 the run detail page, and streams events and spans live over Server-Sent Events.
 
