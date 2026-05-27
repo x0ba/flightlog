@@ -1,7 +1,16 @@
 import { z } from 'zod';
 
 export const runStatusSchema = z.enum(['running', 'success', 'failed', 'cancelled']);
-export const providerSchema = z.enum(['openai', 'anthropic']);
+export const providerSchema = z.enum(['openai', 'anthropic', 'browserbase']);
+export const agentProviderSchema = z.enum(['openai', 'anthropic']);
+
+const trimmedString = (max: number) => z.string().trim().min(1).max(max);
+const optionalTrimmedString = (max: number) => z.string().trim().min(1).max(max).optional();
+
+export const credentialIdSchema = trimmedString(64);
+export const providerLabelSchema = trimmedString(120);
+export const providerApiKeySchema = trimmedString(512);
+export const browserbaseProjectIdSchema = trimmedString(128);
 export const agentFrameworkSchema = z.enum(['native', 'ai-sdk', 'langchain', 'custom']);
 export const runModeSchema = z.enum(['browser', 'tool_agent']);
 export const approvalPolicySchema = z.enum(['risk_based', 'always', 'never']);
@@ -136,19 +145,20 @@ export const evaluateRunSchema = z.object({
 });
 
 export const createAgentRunSchema = z.object({
-	prompt: z.string().min(1),
-	name: z.string().min(1).optional(),
-	constraints: z.array(z.string().min(1)).optional().default([]),
+	prompt: trimmedString(10_000),
+	name: optionalTrimmedString(200),
+	constraints: z.array(trimmedString(2_000)).optional().default([]),
 	runMode: runModeSchema.default('tool_agent'),
-	provider: providerSchema.default('openai'),
+	provider: agentProviderSchema.default('openai'),
 	framework: agentFrameworkSchema.optional().default('native'),
-	model: z.string().min(1).optional(),
-	credentialId: z.string().min(1).optional(),
-	tools: z.array(z.string().min(1)).optional().default([]),
+	model: optionalTrimmedString(120),
+	credentialId: credentialIdSchema.optional(),
+	browserbaseCredentialId: credentialIdSchema.optional(),
+	tools: z.array(trimmedString(120)).optional().default([]),
 	approvalPolicy: approvalPolicySchema.optional().default('risk_based'),
 	maxSteps: z.number().int().min(1).max(100).optional(),
 	temperature: z.number().min(0).max(2).optional(),
-	systemPrompt: z.string().optional()
+	systemPrompt: z.string().trim().max(20_000).optional()
 });
 
 export const approvalDecisionSchema = z.object({
@@ -157,17 +167,45 @@ export const approvalDecisionSchema = z.object({
 	note: z.string().optional()
 });
 
-export const createProviderCredentialSchema = z.object({
-	provider: providerSchema,
-	label: z.string().min(1),
-	apiKey: z.string().min(1)
-});
+export const createProviderCredentialSchema = z
+	.object({
+		provider: providerSchema,
+		label: providerLabelSchema,
+		apiKey: providerApiKeySchema,
+		projectId: browserbaseProjectIdSchema.optional()
+	})
+	.superRefine((value, ctx) => {
+		if (value.provider === 'browserbase' && value.projectId === undefined) {
+			ctx.addIssue({
+				code: 'custom',
+				message: 'Browserbase credentials require a project ID.',
+				path: ['projectId']
+			});
+		}
+		if (value.provider !== 'browserbase' && value.projectId !== undefined) {
+			ctx.addIssue({
+				code: 'custom',
+				message: 'Project ID is only valid for Browserbase credentials.',
+				path: ['projectId']
+			});
+		}
+	});
 
-export const updateProviderCredentialSchema = z.object({
-	label: z.string().min(1).optional(),
-	apiKey: z.string().min(1).optional(),
-	isEnabled: z.boolean().optional()
-});
+export const updateProviderCredentialSchema = z
+	.object({
+		label: providerLabelSchema.optional(),
+		apiKey: providerApiKeySchema.optional(),
+		projectId: browserbaseProjectIdSchema.optional(),
+		isEnabled: z.boolean().optional()
+	})
+	.refine(
+		(value) =>
+			value.label !== undefined ||
+			value.apiKey !== undefined ||
+			value.projectId !== undefined ||
+			value.isEnabled !== undefined,
+		{ message: 'At least one field is required.' }
+	);
 
 export const evaluationPolicySchema = z.object({
 	minScore: z.number().int().min(0).max(100).default(70),
@@ -177,15 +215,16 @@ export const evaluationPolicySchema = z.object({
 
 export const agentConfigSchema = z.object({
 	runMode: runModeSchema.default('tool_agent'),
-	provider: providerSchema.default('openai'),
+	provider: agentProviderSchema.default('openai'),
 	framework: agentFrameworkSchema.default('native'),
-	model: z.string().min(1).optional(),
-	credentialId: z.string().min(1).optional(),
-	tools: z.array(z.string().min(1)).optional().default([]),
+	model: optionalTrimmedString(120),
+	credentialId: credentialIdSchema.optional(),
+	browserbaseCredentialId: credentialIdSchema.optional(),
+	tools: z.array(trimmedString(120)).optional().default([]),
 	approvalPolicy: approvalPolicySchema.default('risk_based'),
 	maxSteps: z.number().int().min(1).max(100).optional(),
 	temperature: z.number().min(0).max(2).optional(),
-	systemPrompt: z.string().optional()
+	systemPrompt: z.string().trim().max(20_000).optional()
 });
 
 export const createRegressionSuiteSchema = z.object({

@@ -18,6 +18,7 @@ export const defaultTools = ['calculator.evaluate', 'web.fetchText', 'web.search
 
 type CreateCredentialInput = z.infer<typeof createProviderCredentialSchema>;
 type UpdateCredentialInput = z.infer<typeof updateProviderCredentialSchema>;
+type Provider = CreateCredentialInput['provider'];
 
 export async function listProviderCredentials(ownerUserId: string) {
 	const rows = await db
@@ -36,7 +37,8 @@ export async function createProviderCredential(ownerUserId: string, input: Creat
 			provider: input.provider,
 			label: input.label,
 			encryptedApiKey: encryptSecret(input.apiKey),
-			keyPreview: previewKey(input.apiKey)
+			keyPreview: previewKey(input.apiKey),
+			browserbaseProjectId: input.provider === 'browserbase' ? (input.projectId ?? null) : null
 		})
 		.returning();
 	return redactCredential(row);
@@ -47,6 +49,18 @@ export async function updateProviderCredential(
 	publicCredentialId: string,
 	input: UpdateCredentialInput
 ) {
+	const [existing] = await db
+		.select()
+		.from(providerCredentials)
+		.where(
+			and(
+				eq(providerCredentials.publicId, publicCredentialId),
+				eq(providerCredentials.ownerUserId, ownerUserId)
+			)
+		)
+		.limit(1);
+	if (!existing) return undefined;
+
 	const patch: Partial<typeof providerCredentials.$inferInsert> = {
 		updatedAt: new Date()
 	};
@@ -56,6 +70,11 @@ export async function updateProviderCredential(
 		patch.encryptedApiKey = encryptSecret(input.apiKey);
 		patch.keyPreview = previewKey(input.apiKey);
 	}
+	if (input.projectId !== undefined) {
+		if (existing.provider !== 'browserbase') return undefined;
+		patch.browserbaseProjectId = input.projectId;
+	}
+
 	const [row] = await db
 		.update(providerCredentials)
 		.set(patch)
@@ -85,7 +104,7 @@ export async function deleteProviderCredential(ownerUserId: string, publicCreden
 export async function getProviderApiKey(
 	ownerUserId: string,
 	publicCredentialId: string,
-	provider?: 'openai' | 'anthropic'
+	provider?: Provider
 ) {
 	const [row] = await db
 		.select()
@@ -101,7 +120,8 @@ export async function getProviderApiKey(
 	if (provider && row.provider !== provider) return undefined;
 	return {
 		credential: redactCredential(row),
-		apiKey: decryptSecret(row.encryptedApiKey)
+		apiKey: decryptSecret(row.encryptedApiKey),
+		projectId: row.browserbaseProjectId ?? undefined
 	};
 }
 
@@ -111,6 +131,7 @@ function redactCredential(row: typeof providerCredentials.$inferSelect) {
 		provider: row.provider,
 		label: row.label,
 		keyPreview: row.keyPreview,
+		projectId: row.browserbaseProjectId ?? undefined,
 		isEnabled: row.isEnabled,
 		createdAt: row.createdAt,
 		updatedAt: row.updatedAt
@@ -119,6 +140,6 @@ function redactCredential(row: typeof providerCredentials.$inferSelect) {
 
 function previewKey(apiKey: string) {
 	const trimmed = apiKey.trim();
-	if (trimmed.length <= 8) return '...' + trimmed.slice(-4);
-	return `${trimmed.slice(0, 4)}...${trimmed.slice(-4)}`;
+	if (trimmed.length <= 4) return '••••';
+	return `...${trimmed.slice(-4)}`;
 }

@@ -13,7 +13,7 @@ import {
 import { sql } from 'drizzle-orm';
 
 export const runStatusEnum = pgEnum('run_status', ['running', 'success', 'failed', 'cancelled']);
-export const providerEnum = pgEnum('provider', ['openai', 'anthropic']);
+export const providerEnum = pgEnum('provider', ['openai', 'anthropic', 'browserbase']);
 export const agentFrameworkEnum = pgEnum('agent_framework', [
 	'native',
 	'ai-sdk',
@@ -128,11 +128,12 @@ export const runs = pgTable('runs', {
 export const providerCredentials = pgTable('provider_credentials', {
 	id: serial('id').primaryKey(),
 	publicId: text('public_id').notNull().unique(),
-	ownerUserId: text('owner_user_id'),
+	ownerUserId: text('owner_user_id').notNull(),
 	provider: providerEnum('provider').notNull(),
 	label: text('label').notNull(),
 	encryptedApiKey: text('encrypted_api_key').notNull(),
 	keyPreview: text('key_preview').notNull(),
+	browserbaseProjectId: text('browserbase_project_id'),
 	isEnabled: boolean('is_enabled').notNull().default(true),
 	createdAt: timestamp('created_at')
 		.notNull()
