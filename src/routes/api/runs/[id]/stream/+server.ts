@@ -1,10 +1,13 @@
-import { error } from '@sveltejs/kit';
+import { requireUserId } from '$lib/server/auth';
+import { requireRunForUser } from '$lib/server/http';
 import { getRunSnapshot, maybeStartAgentRun } from '$lib/server/agent-runner/service';
 import { encodeSse, subscribeToRun } from '$lib/server/agent-runner/stream';
 
-export async function GET({ params, request }) {
-	const snapshot = await getRunSnapshot(params.id);
-	if (!snapshot) error(404, 'Run not found');
+export async function GET(event) {
+	const userId = requireUserId(event);
+	const { params, request } = event;
+	const run = await requireRunForUser(params.id, userId, 'Run not found');
+	const snapshot = await getRunSnapshot(run);
 
 	const encoder = new TextEncoder();
 	const stream = new ReadableStream<Uint8Array>({

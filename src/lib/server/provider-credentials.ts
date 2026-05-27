@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { providerCredentials } from '$lib/server/db/schema';
 import { decryptSecret, encryptSecret } from '$lib/server/crypto/keys';
@@ -18,30 +18,49 @@ export const defaultTools = ['calculator.evaluate', 'web.fetchText', 'web.search
 
 type CreateCredentialInput = z.infer<typeof createProviderCredentialSchema>;
 type UpdateCredentialInput = z.infer<typeof updateProviderCredentialSchema>;
+type Provider = CreateCredentialInput['provider'];
 
-export async function listProviderCredentials() {
-	const rows = await db.select().from(providerCredentials);
+export async function listProviderCredentials(ownerUserId: string) {
+	const rows = await db
+		.select()
+		.from(providerCredentials)
+		.where(eq(providerCredentials.ownerUserId, ownerUserId));
 	return rows.map(redactCredential);
 }
 
-export async function createProviderCredential(input: CreateCredentialInput) {
+export async function createProviderCredential(ownerUserId: string, input: CreateCredentialInput) {
 	const [row] = await db
 		.insert(providerCredentials)
 		.values({
 			publicId: publicId('cred'),
+			ownerUserId,
 			provider: input.provider,
 			label: input.label,
 			encryptedApiKey: encryptSecret(input.apiKey),
-			keyPreview: previewKey(input.apiKey)
+			keyPreview: previewKey(input.apiKey),
+			browserbaseProjectId: input.provider === 'browserbase' ? (input.projectId ?? null) : null
 		})
 		.returning();
 	return redactCredential(row);
 }
 
 export async function updateProviderCredential(
+	ownerUserId: string,
 	publicCredentialId: string,
 	input: UpdateCredentialInput
 ) {
+	const [existing] = await db
+		.select()
+		.from(providerCredentials)
+		.where(
+			and(
+				eq(providerCredentials.publicId, publicCredentialId),
+				eq(providerCredentials.ownerUserId, ownerUserId)
+			)
+		)
+		.limit(1);
+	if (!existing) return undefined;
+
 	const patch: Partial<typeof providerCredentials.$inferInsert> = {
 		updatedAt: new Date()
 	};
@@ -51,36 +70,58 @@ export async function updateProviderCredential(
 		patch.encryptedApiKey = encryptSecret(input.apiKey);
 		patch.keyPreview = previewKey(input.apiKey);
 	}
+	if (input.projectId !== undefined) {
+		if (existing.provider !== 'browserbase') return undefined;
+		patch.browserbaseProjectId = input.projectId;
+	}
+
 	const [row] = await db
 		.update(providerCredentials)
 		.set(patch)
-		.where(eq(providerCredentials.publicId, publicCredentialId))
+		.where(
+			and(
+				eq(providerCredentials.publicId, publicCredentialId),
+				eq(providerCredentials.ownerUserId, ownerUserId)
+			)
+		)
 		.returning();
 	return row ? redactCredential(row) : undefined;
 }
 
-export async function deleteProviderCredential(publicCredentialId: string) {
+export async function deleteProviderCredential(ownerUserId: string, publicCredentialId: string) {
 	const [row] = await db
 		.delete(providerCredentials)
-		.where(eq(providerCredentials.publicId, publicCredentialId))
+		.where(
+			and(
+				eq(providerCredentials.publicId, publicCredentialId),
+				eq(providerCredentials.ownerUserId, ownerUserId)
+			)
+		)
 		.returning({ publicId: providerCredentials.publicId });
 	return row;
 }
 
 export async function getProviderApiKey(
+	ownerUserId: string,
 	publicCredentialId: string,
-	provider?: 'openai' | 'anthropic'
+	provider?: Provider
 ) {
 	const [row] = await db
 		.select()
 		.from(providerCredentials)
-		.where(eq(providerCredentials.publicId, publicCredentialId))
+		.where(
+			and(
+				eq(providerCredentials.publicId, publicCredentialId),
+				eq(providerCredentials.ownerUserId, ownerUserId)
+			)
+		)
 		.limit(1);
 	if (!row || !row.isEnabled) return undefined;
 	if (provider && row.provider !== provider) return undefined;
 	return {
 		credential: redactCredential(row),
-		apiKey: decryptSecret(row.encryptedApiKey)
+		apiKey: decryptSecret(row.encryptedApiKey),
+		projectId: row.browserbaseProjectId ?? undefined
 	};
 }
 
@@ -90,6 +131,7 @@ function redactCredential(row: typeof providerCredentials.$inferSelect) {
 		provider: row.provider,
 		label: row.label,
 		keyPreview: row.keyPreview,
+		projectId: row.browserbaseProjectId ?? undefined,
 		isEnabled: row.isEnabled,
 		createdAt: row.createdAt,
 		updatedAt: row.updatedAt
@@ -98,6 +140,6 @@ function redactCredential(row: typeof providerCredentials.$inferSelect) {
 
 function previewKey(apiKey: string) {
 	const trimmed = apiKey.trim();
-	if (trimmed.length <= 8) return '...' + trimmed.slice(-4);
-	return `${trimmed.slice(0, 4)}...${trimmed.slice(-4)}`;
+	if (trimmed.length <= 4) return '••••';
+	return `...${trimmed.slice(-4)}`;
 }

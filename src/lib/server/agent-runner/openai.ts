@@ -4,18 +4,6 @@ import type { OpenAIComputerResponse, SafetyCheck } from './types';
 
 const DEFAULT_AGENT_MODEL = 'computer-use-preview';
 
-let client: OpenAI | undefined;
-
-function openaiClient() {
-	if (!env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not set');
-	client ??= new OpenAI({ apiKey: env.OPENAI_API_KEY });
-	return client;
-}
-
-export function agentModel() {
-	return env.OPENAI_AGENT_MODEL || DEFAULT_AGENT_MODEL;
-}
-
 const computerTool = {
 	type: 'computer_use_preview',
 	display_width: 1024,
@@ -23,9 +11,26 @@ const computerTool = {
 	environment: 'browser'
 } as const;
 
-export async function createInitialComputerResponse(prompt: string, screenshotDataUrl: string) {
-	const response = await openaiClient().responses.create({
-		model: agentModel(),
+export type ComputerUseCredentials = {
+	apiKey: string;
+	model?: string;
+};
+
+export function agentModel(modelOverride?: string) {
+	return modelOverride || env.OPENAI_AGENT_MODEL || DEFAULT_AGENT_MODEL;
+}
+
+function openaiClient(apiKey: string) {
+	return new OpenAI({ apiKey });
+}
+
+export async function createInitialComputerResponse(
+	prompt: string,
+	screenshotDataUrl: string,
+	credentials: ComputerUseCredentials
+) {
+	const response = await openaiClient(credentials.apiKey).responses.create({
+		model: agentModel(credentials.model),
 		tools: [computerTool],
 		input: [
 			{
@@ -51,14 +56,15 @@ export async function createInitialComputerResponse(prompt: string, screenshotDa
 }
 
 export async function continueComputerResponse(input: {
+	credentials: ComputerUseCredentials;
 	previousResponseId: string;
 	callId: string;
 	screenshotDataUrl: string;
 	currentUrl: string;
 	acknowledgedSafetyChecks?: SafetyCheck[];
 }) {
-	const response = await openaiClient().responses.create({
-		model: agentModel(),
+	const response = await openaiClient(input.credentials.apiKey).responses.create({
+		model: agentModel(input.credentials.model),
 		previous_response_id: input.previousResponseId,
 		tools: [computerTool],
 		input: [
@@ -76,8 +82,4 @@ export async function continueComputerResponse(input: {
 	});
 
 	return response as OpenAIComputerResponse;
-}
-
-export function hasOpenAiKey() {
-	return Boolean(env.OPENAI_API_KEY);
 }

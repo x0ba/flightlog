@@ -15,6 +15,7 @@ export type ToolAgentRunInput = {
 	run: {
 		id: number;
 		publicId: string;
+		ownerUserId: string;
 		goal: string;
 		metadata: unknown;
 	};
@@ -27,7 +28,7 @@ export async function runToolAgent(input: ToolAgentRunInput) {
 	const model = input.request.model;
 	if (!model) throw new Error('Model is required');
 	if (!input.request.credentialId) throw new Error('Provider credential is required');
-	const credential = await getProviderApiKey(input.credentialId, provider);
+	const credential = await getProviderApiKey(input.run.ownerUserId, input.credentialId, provider);
 	if (!credential) throw new Error('Provider credential was not found or is disabled');
 
 	const adapter = providerAdapter(provider);
@@ -216,7 +217,7 @@ async function finish(input: ToolAgentRunInput, rootSpanId: number, message: str
 		publishRunEvent(input.run.publicId, { type: 'done', data: { run: updated } });
 	}
 	if (input.request.constraints?.length)
-		await evaluateRun(input.run.publicId, input.request.constraints);
+		await evaluateRun(input.run.publicId, undefined, input.request.constraints);
 }
 
 async function createSpan(

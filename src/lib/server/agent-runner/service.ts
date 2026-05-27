@@ -8,9 +8,10 @@ import { appendEvent, listEvents } from '$lib/server/events';
 import { evaluateRun } from '$lib/server/evaluation/service';
 import { findRun, patchRunMetadata, updateRun } from '$lib/server/runs';
 import { listSpans } from '$lib/server/traces';
-import { createBrowserSession, hasBrowserbaseConfig } from './browser';
+import { createBrowserSession } from './browser';
 import { needsApproval, resolveApproval, waitForApproval } from './approval';
-import { continueComputerResponse, createInitialComputerResponse, hasOpenAiKey } from './openai';
+import { continueComputerResponse, createInitialComputerResponse } from './openai';
+import { getProviderApiKey } from '$lib/server/provider-credentials';
 import { publishRunEvent } from './stream';
 import { runToolAgent } from './tool-agent';
 import type {
@@ -22,6 +23,7 @@ import type {
 	PendingApproval,
 	ReasoningItem,
 	RunMetadata,
+	RunRow,
 	SafetyCheck,
 	SnapshotPayload
 } from './types';
@@ -29,6 +31,7 @@ import type {
 const activeRuns = new Set<string>();
 
 export async function createAgentRun(input: {
+	ownerUserId: string;
 	prompt: string;
 	name?: string;
 	constraints?: string[];
@@ -37,6 +40,7 @@ export async function createAgentRun(input: {
 	framework?: 'native' | 'ai-sdk' | 'langchain' | 'custom';
 	model?: string;
 	credentialId?: string;
+	browserbaseCredentialId?: string;
 	tools?: string[];
 	approvalPolicy?: 'risk_based' | 'always' | 'never';
 	maxSteps?: number;
@@ -50,6 +54,7 @@ export async function createAgentRun(input: {
 		input.model ||
 		(runMode === 'browser' ? env.OPENAI_AGENT_MODEL || 'computer-use-preview' : undefined);
 	const run = await createRun({
+		ownerUserId: input.ownerUserId,
 		goal: input.prompt,
 		name: input.name || titleFromPrompt(input.prompt),
 		agentName: runMode === 'browser' ? 'OpenAI computer-use' : `${provider} tool agent`,
@@ -64,6 +69,7 @@ export async function createAgentRun(input: {
 				framework: input.framework ?? 'native',
 				model,
 				credentialId: input.credentialId,
+				browserbaseCredentialId: input.browserbaseCredentialId,
 				runMode,
 				tools: input.tools ?? [],
 				approvalPolicy: input.approvalPolicy ?? 'risk_based',
@@ -83,9 +89,7 @@ export async function createAgentRun(input: {
 	return run;
 }
 
-export async function getRunSnapshot(publicRunId: string): Promise<SnapshotPayload | undefined> {
-	const run = await findRun(publicRunId);
-	if (!run) return undefined;
+export async function getRunSnapshot(run: RunRow): Promise<SnapshotPayload> {
 	const events = await listEvents(run.id);
 	const spans = await listSpans(run.id);
 	const artifactRows = await listArtifacts(run.id);
@@ -118,11 +122,9 @@ export async function maybeStartAgentRun(publicRunId: string) {
 	return true;
 }
 
-export async function decideApproval(publicRunId: string, decision: ApprovalDecision) {
-	const run = await findRun(publicRunId);
-	if (!run) return undefined;
-	const accepted = resolveApproval(publicRunId, decision);
-	const row = await appendAndPublish(run.id, publicRunId, {
+export async function decideApproval(run: RunRow, decision: ApprovalDecision) {
+	const accepted = resolveApproval(run.publicId, decision);
+	const row = await appendAndPublish(run.id, run.publicId, {
 		type: 'human_approval',
 		title: decision.decision === 'approved' ? 'Action approved' : 'Action rejected',
 		message: decision.note,
@@ -130,7 +132,7 @@ export async function decideApproval(publicRunId: string, decision: ApprovalDeci
 		data: decision
 	});
 	if (!accepted && decision.decision === 'rejected') {
-		await cancelRun(publicRunId, 'Approval rejected after the runner stopped waiting.');
+		await cancelRun(run.publicId, 'Approval rejected after the runner stopped waiting.');
 	}
 	return row;
 }
@@ -149,11 +151,15 @@ async function runAgent(publicRunId: string) {
 			});
 			const runningRun = await findRun(publicRunId);
 			if (runningRun) {
+				if (!runningRun.ownerUserId) {
+					throw new Error('Run is missing an owner user id; assign legacy runs before resuming.');
+				}
 				publishRunEvent(publicRunId, { type: 'run', data: runningRun });
 				await runToolAgent({
 					run: {
 						id: runningRun.id,
 						publicId: runningRun.publicId,
+						ownerUserId: runningRun.ownerUserId,
 						goal: runningRun.goal,
 						metadata: runningRun.metadata
 					},
@@ -172,14 +178,41 @@ async function runAgent(publicRunId: string) {
 		return;
 	}
 
-	if (!hasOpenAiKey()) {
-		await failRun(publicRunId, 'OPENAI_API_KEY is not set');
+	if (!initialRun.ownerUserId) {
+		await failRun(publicRunId, 'Run is missing an owner user id.');
 		return;
 	}
-	if (!hasBrowserbaseConfig()) {
-		await failRun(publicRunId, 'BROWSERBASE_API_KEY is not set');
+	const openAiCredentialId = initialAgentRequest.credentialId;
+	const browserbaseCredentialId = initialAgentRequest.browserbaseCredentialId;
+	if (!openAiCredentialId || !browserbaseCredentialId) {
+		await failRun(publicRunId, 'Browser runs require saved OpenAI and Browserbase credentials.');
 		return;
 	}
+
+	const [openAiCredential, browserbaseCredential] = await Promise.all([
+		getProviderApiKey(initialRun.ownerUserId, openAiCredentialId, 'openai'),
+		getProviderApiKey(initialRun.ownerUserId, browserbaseCredentialId, 'browserbase')
+	]);
+	if (!openAiCredential) {
+		await failRun(publicRunId, 'OpenAI credential was not found or is disabled.');
+		return;
+	}
+	if (!browserbaseCredential?.projectId) {
+		await failRun(
+			publicRunId,
+			'Browserbase credential was not found, is disabled, or is missing a project ID.'
+		);
+		return;
+	}
+
+	const computerUseCredentials = {
+		apiKey: openAiCredential.apiKey,
+		model: initialAgentRequest.model
+	};
+	const browserCredentials = {
+		apiKey: browserbaseCredential.apiKey,
+		projectId: browserbaseCredential.projectId
+	};
 
 	let session: Awaited<ReturnType<typeof createBrowserSession>> | undefined;
 	let response: OpenAIComputerResponse | undefined;
@@ -196,7 +229,10 @@ async function runAgent(publicRunId: string) {
 		const runningRun = await findRun(publicRunId);
 		if (runningRun) publishRunEvent(publicRunId, { type: 'run', data: runningRun });
 
-		session = await createBrowserSession(startUrlForPrompt(initialAgentRequest.prompt));
+		session = await createBrowserSession(
+			browserCredentials,
+			startUrlForPrompt(initialAgentRequest.prompt)
+		);
 		await patchRunMetadata(publicRunId, {
 			browserbase: {
 				sessionId: session.browserbaseSessionId,
@@ -216,7 +252,11 @@ async function runAgent(publicRunId: string) {
 			}
 		});
 
-		response = await createInitialComputerResponse(initialAgentRequest.prompt, initialScreenshot);
+		response = await createInitialComputerResponse(
+			initialAgentRequest.prompt,
+			initialScreenshot,
+			computerUseCredentials
+		);
 		await setResponseMetadata(publicRunId, response.id, stepCount);
 
 		while (stepCount < maxSteps) {
@@ -319,6 +359,7 @@ async function runAgent(publicRunId: string) {
 			}
 
 			response = await continueComputerResponse({
+				credentials: computerUseCredentials,
 				previousResponseId: response.id,
 				callId: call.call_id,
 				screenshotDataUrl: screenshot,
@@ -414,7 +455,7 @@ async function completeRun(publicRunId: string, runId: number, response: OpenAIC
 		publishRunEvent(publicRunId, { type: 'done', data: { run: updated } });
 	}
 	const constraints = metadata?.constraints ?? [];
-	if (constraints.length) await evaluateRun(publicRunId, constraints);
+	if (constraints.length) await evaluateRun(publicRunId, undefined, constraints);
 }
 
 async function failRun(publicRunId: string, message: string) {

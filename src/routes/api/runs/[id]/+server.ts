@@ -3,13 +3,14 @@ import { db } from '$lib/server/db';
 import { artifacts, evaluationFindings, evaluations } from '$lib/server/db/schema';
 import { listEvents } from '$lib/server/events';
 import { publishRunEvent } from '$lib/server/agent-runner/stream';
-import { ok, parseJson, notFound } from '$lib/server/http';
-import { findRun, updateRun } from '$lib/server/runs';
+import { requireUserId } from '$lib/server/auth';
+import { ok, parseJson, notFound, requireRunForUser } from '$lib/server/http';
+import { updateRunForUser } from '$lib/server/runs';
 import { updateRunSchema } from '$lib/server/validation';
 
-export async function GET({ params }) {
-	const run = await findRun(params.id);
-	if (!run) notFound('Run not found');
+export async function GET(event) {
+	const userId = requireUserId(event);
+	const run = await requireRunForUser(event.params.id, userId, 'Run not found');
 	const events = await listEvents(run.id);
 	const artifactRows = await db.select().from(artifacts).where(eq(artifacts.runId, run.id));
 	const [evaluation] = await db
@@ -28,8 +29,9 @@ export async function GET({ params }) {
 }
 
 export async function PATCH(event) {
+	const userId = requireUserId(event);
 	const input = await parseJson(event, updateRunSchema);
-	const run = await updateRun(event.params.id, input);
+	const run = await updateRunForUser(event.params.id, userId, input);
 	if (!run) notFound('Run not found');
 	publishRunEvent(run.publicId, { type: 'run', data: run });
 	if (run.status !== 'running') publishRunEvent(run.publicId, { type: 'done', data: { run } });
