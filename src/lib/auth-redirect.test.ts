@@ -10,6 +10,7 @@ describe('safeRedirectPath', () => {
 	it('rejects external and malformed targets', () => {
 		expect(safeRedirectPath('https://evil.test/runs')).toBe('/runs');
 		expect(safeRedirectPath('//evil.test/runs')).toBe('/runs');
+		expect(safeRedirectPath('/\\evil.test')).toBe('/runs');
 		expect(safeRedirectPath(null)).toBe('/runs');
 	});
 });

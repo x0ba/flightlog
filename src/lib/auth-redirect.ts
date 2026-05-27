@@ -1,7 +1,13 @@
 const defaultPostAuthPath = '/runs';
 
 export function safeRedirectPath(path: string | null | undefined, fallback = defaultPostAuthPath) {
-	if (!path || !path.startsWith('/') || path.startsWith('//') || path.includes('://')) {
+	if (
+		!path ||
+		!path.startsWith('/') ||
+		path.startsWith('//') ||
+		path.startsWith('/\\') ||
+		path.includes('://')
+	) {
 		return fallback;
 	}
 	return path;
