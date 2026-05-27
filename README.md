@@ -24,7 +24,7 @@ Use Docker Postgres locally and Neon in production. Both use the same `DATABASE_
 3. Apply schema: `bun run db:push`.
 4. On Vercel (or other production), set `DATABASE_URL` to your Neon connection string.
 
-`drizzle-kit` uses the `pg` driver when `pg` is installed (required for local `db:push` / `db:migrate`). The Neon serverless driver is only used at runtime when the URL is not localhost.
+`drizzle-kit` uses the `pg` driver when `pg` is installed (required for local `db:push`). The Neon serverless driver is only used at runtime when the URL is not localhost. Schema changes belong in `src/lib/server/db/schema.ts`; apply them with `bun run db:push`.
 
 Required environment:
 
