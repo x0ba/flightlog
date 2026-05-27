@@ -19,15 +19,25 @@
 			<span class="sr-only">Loading account</span>
 		</ClerkLoading>
 		<ClerkLoaded>
-			<UserButton
-				afterSignOutUrl="/sign-in"
-				appearance={{
-					elements: {
-						rootBox: 'flex items-center',
-						avatarBox: 'h-8 w-8 rounded-md ring-1 ring-border'
-					}
-				}}
-			/>
+			<SignedIn>
+				<UserButton
+					afterSignOutUrl="/sign-in"
+					appearance={{
+						elements: {
+							rootBox: 'flex items-center',
+							avatarBox: 'h-8 w-8 rounded-md ring-1 ring-border'
+						}
+					}}
+				/>
+			</SignedIn>
+			<SignedOut>
+				<a
+					class="rounded-md border border-border bg-card px-3 py-1.5 font-mono text-xs text-foreground transition-colors hover:bg-secondary"
+					href={resolve('/sign-in')}
+				>
+					Sign in
+				</a>
+			</SignedOut>
 		</ClerkLoaded>
 	{:else}
 		<ClerkLoading>
