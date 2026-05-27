@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { Activity, GitBranch, Menu, X } from '@lucide/svelte';
 	import AuthCorner from '$lib/components/auth-corner.svelte';
@@ -8,18 +9,18 @@
 
 	const nav = [
 		{
-			href: '/runs',
+			href: '/runs' as const,
 			label: 'Runs',
 			icon: Activity,
 			match: (p: string) => p === '/runs' || p.startsWith('/runs/')
 		},
 		{
-			href: '/regression',
+			href: '/regression' as const,
 			label: 'Regression',
 			icon: GitBranch,
 			match: (p: string) => p.startsWith('/regression')
 		}
-	];
+	] as const;
 
 	let pathname = $derived(page.url.pathname);
 </script>
@@ -68,7 +69,7 @@
 			{#each nav as item (item.href)}
 				{@const active = item.match(pathname)}
 				<a
-					href={item.href}
+					href={resolve(item.href)}
 					onclick={() => (mobileOpen = false)}
 					class="group flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors {active
 						? 'bg-accent text-foreground'

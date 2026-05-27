@@ -377,25 +377,21 @@
 					{events.length} event{events.length === 1 ? '' : 's'}
 				</span>
 			{/snippet}
-			{#snippet children()}
-				<div class="px-5 py-4">
-					{#if events.length}
-						<EventTimeline {events} {artifactsByEvent} {selectedSequence} onSelect={selectEvent} />
-					{:else}
-						<p class="py-12 text-center text-xs text-muted-foreground">
-							No events logged for this run.
-						</p>
-					{/if}
-				</div>
-			{/snippet}
+			<div class="px-5 py-4">
+				{#if events.length}
+					<EventTimeline {events} {artifactsByEvent} {selectedSequence} onSelect={selectEvent} />
+				{:else}
+					<p class="py-12 text-center text-xs text-muted-foreground">
+						No events logged for this run.
+					</p>
+				{/if}
+			</div>
 		</Section>
 
 		<!-- Right column: replay + inspector + evaluation -->
 		<div class="flex min-w-0 flex-col gap-6">
 			<Section title="Replay">
-				{#snippet children()}
-					<ReplayPanel {events} {artifacts} {selectedSequence} onSelect={selectEvent} />
-				{/snippet}
+				<ReplayPanel {events} {artifacts} {selectedSequence} onSelect={selectEvent} />
 			</Section>
 
 			<Section title="Inspector">
@@ -404,49 +400,47 @@
 						{selectedSpan?.kind ?? selectedEvent?.type ?? 'empty'}
 					</span>
 				{/snippet}
-				{#snippet children()}
-					<div class="space-y-3 text-sm">
-						{#if selectedSpan}
-							<div
-								class="grid grid-cols-2 gap-3 rounded-md border border-border/60 bg-background px-3 py-2.5"
-							>
-								<div>
-									<p class="text-[10px] text-muted-foreground">Span</p>
-									<p class="truncate font-mono text-[11px]">{selectedSpan.publicId}</p>
-								</div>
-								<div>
-									<p class="text-[10px] text-muted-foreground">Status</p>
-									<p class="font-mono text-[11px]">{selectedSpan.status}</p>
-								</div>
+				<div class="space-y-3 text-sm">
+					{#if selectedSpan}
+						<div
+							class="grid grid-cols-2 gap-3 rounded-md border border-border/60 bg-background px-3 py-2.5"
+						>
+							<div>
+								<p class="text-[10px] text-muted-foreground">Span</p>
+								<p class="truncate font-mono text-[11px]">{selectedSpan.publicId}</p>
 							</div>
-							<p class="font-medium tracking-tight">{selectedSpan.name}</p>
-							{#if selectedSpan.input}
-								<pre
-									class="max-h-44 overflow-auto rounded-md border border-border/60 bg-background p-3 font-mono text-[11px] text-muted-foreground">{displayJson(
-										selectedSpan.input
-									)}</pre>
-							{/if}
-							{#if selectedSpan.output}
-								<pre
-									class="max-h-44 overflow-auto rounded-md border border-border/60 bg-background p-3 font-mono text-[11px] text-muted-foreground">{displayJson(
-										selectedSpan.output
-									)}</pre>
-							{/if}
-						{:else if selectedEvent}
-							<p class="font-medium tracking-tight">
-								{selectedEvent.title ?? selectedEvent.message ?? selectedEvent.type}
-							</p>
+							<div>
+								<p class="text-[10px] text-muted-foreground">Status</p>
+								<p class="font-mono text-[11px]">{selectedSpan.status}</p>
+							</div>
+						</div>
+						<p class="font-medium tracking-tight">{selectedSpan.name}</p>
+						{#if selectedSpan.input}
 							<pre
-								class="max-h-72 overflow-auto rounded-md border border-border/60 bg-background p-3 font-mono text-[11px] text-muted-foreground">{displayJson(
-									selectedEvent.data
+								class="max-h-44 overflow-auto rounded-md border border-border/60 bg-background p-3 font-mono text-[11px] text-muted-foreground">{displayJson(
+									selectedSpan.input
 								)}</pre>
-						{:else}
-							<p class="text-xs text-muted-foreground">
-								Select an event to inspect normalized trace data.
-							</p>
 						{/if}
-					</div>
-				{/snippet}
+						{#if selectedSpan.output}
+							<pre
+								class="max-h-44 overflow-auto rounded-md border border-border/60 bg-background p-3 font-mono text-[11px] text-muted-foreground">{displayJson(
+									selectedSpan.output
+								)}</pre>
+						{/if}
+					{:else if selectedEvent}
+						<p class="font-medium tracking-tight">
+							{selectedEvent.title ?? selectedEvent.message ?? selectedEvent.type}
+						</p>
+						<pre
+							class="max-h-72 overflow-auto rounded-md border border-border/60 bg-background p-3 font-mono text-[11px] text-muted-foreground">{displayJson(
+								selectedEvent.data
+							)}</pre>
+					{:else}
+						<p class="text-xs text-muted-foreground">
+							Select an event to inspect normalized trace data.
+						</p>
+					{/if}
+				</div>
 			</Section>
 
 			<Section title="Evaluation">
@@ -455,65 +449,61 @@
 						{evaluating ? 'running' : (evaluation?.status ?? 'not evaluated')}
 					</span>
 				{/snippet}
-				{#snippet children()}
-					{#if evaluating}
-						<div
-							class="flex items-center gap-3 rounded-md border border-status-running/60 bg-status-running/10 p-3"
-						>
-							<LoaderCircle class="size-4 shrink-0 animate-spin text-status-running" />
-							<div class="min-w-0">
-								<p class="text-xs font-medium">Evaluation running</p>
-								<p class="text-xs text-muted-foreground">
-									Scoring the run and checking constraints.
-								</p>
-							</div>
+				{#if evaluating}
+					<div
+						class="flex items-center gap-3 rounded-md border border-status-running/60 bg-status-running/10 p-3"
+					>
+						<LoaderCircle class="size-4 shrink-0 animate-spin text-status-running" />
+						<div class="min-w-0">
+							<p class="text-xs font-medium">Evaluation running</p>
+							<p class="text-xs text-muted-foreground">Scoring the run and checking constraints.</p>
 						</div>
-					{:else if evaluation}
-						<Tabs.Root value="summary">
-							<Tabs.List>
-								<Tabs.Trigger value="summary" class="text-xs">Summary</Tabs.Trigger>
-								<Tabs.Trigger value="findings" class="text-xs">Findings</Tabs.Trigger>
-							</Tabs.List>
-							<Tabs.Content value="summary" class="space-y-3 pt-3">
-								<div
-									class="grid grid-cols-2 gap-3 rounded-md border border-border/60 bg-background px-3 py-2.5"
-								>
-									<div>
-										<p class="text-[10px] text-muted-foreground">Score</p>
-										<p class="font-mono text-base font-semibold tracking-tight">
-											{evaluation.score ?? 'n/a'}
-										</p>
-									</div>
-									<div>
-										<p class="text-[10px] text-muted-foreground">Goal</p>
-										<p class="text-sm font-semibold tracking-tight">
-											{evaluation.goalCompleted ? 'Complete' : 'Open'}
-										</p>
-									</div>
+					</div>
+				{:else if evaluation}
+					<Tabs.Root value="summary">
+						<Tabs.List>
+							<Tabs.Trigger value="summary" class="text-xs">Summary</Tabs.Trigger>
+							<Tabs.Trigger value="findings" class="text-xs">Findings</Tabs.Trigger>
+						</Tabs.List>
+						<Tabs.Content value="summary" class="space-y-3 pt-3">
+							<div
+								class="grid grid-cols-2 gap-3 rounded-md border border-border/60 bg-background px-3 py-2.5"
+							>
+								<div>
+									<p class="text-[10px] text-muted-foreground">Score</p>
+									<p class="font-mono text-base font-semibold tracking-tight">
+										{evaluation.score ?? 'n/a'}
+									</p>
 								</div>
-								<p class="text-sm leading-relaxed">{evaluation.summary}</p>
-								<p class="text-xs text-muted-foreground">{evaluation.explanation}</p>
-							</Tabs.Content>
-							<Tabs.Content value="findings" class="space-y-2 pt-3">
-								{#each findings as finding (finding.id)}
-									<div class="rounded-md border border-border/60 bg-background p-3 text-sm">
-										<div class="mb-1 flex items-center justify-between gap-2">
-											<Badge variant={finding.severity === 'error' ? 'destructive' : 'outline'}>
-												{finding.severity}
-											</Badge>
-											<span class="font-mono text-[10px] text-muted-foreground"
-												>{finding.category}</span
-											>
-										</div>
-										<p>{finding.message}</p>
+								<div>
+									<p class="text-[10px] text-muted-foreground">Goal</p>
+									<p class="text-sm font-semibold tracking-tight">
+										{evaluation.goalCompleted ? 'Complete' : 'Open'}
+									</p>
+								</div>
+							</div>
+							<p class="text-sm leading-relaxed">{evaluation.summary}</p>
+							<p class="text-xs text-muted-foreground">{evaluation.explanation}</p>
+						</Tabs.Content>
+						<Tabs.Content value="findings" class="space-y-2 pt-3">
+							{#each findings as finding (finding.id)}
+								<div class="rounded-md border border-border/60 bg-background p-3 text-sm">
+									<div class="mb-1 flex items-center justify-between gap-2">
+										<Badge variant={finding.severity === 'error' ? 'destructive' : 'outline'}>
+											{finding.severity}
+										</Badge>
+										<span class="font-mono text-[10px] text-muted-foreground"
+											>{finding.category}</span
+										>
 									</div>
-								{/each}
-							</Tabs.Content>
-						</Tabs.Root>
-					{:else}
-						<p class="text-xs text-muted-foreground">Run an evaluation to score this run.</p>
-					{/if}
-				{/snippet}
+									<p>{finding.message}</p>
+								</div>
+							{/each}
+						</Tabs.Content>
+					</Tabs.Root>
+				{:else}
+					<p class="text-xs text-muted-foreground">Run an evaluation to score this run.</p>
+				{/if}
 			</Section>
 		</div>
 	</div>

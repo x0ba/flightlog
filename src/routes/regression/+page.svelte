@@ -67,71 +67,69 @@
 	</PageHeader>
 
 	<Section padded={false}>
-		{#snippet children()}
-			{#if data.suites.length}
-				<Table.Root>
-					<Table.Header>
-						<Table.Row class="border-border/60 hover:bg-transparent">
-							<Table.Head class="pl-5 text-xs text-muted-foreground">Suite</Table.Head>
-							<Table.Head class="text-xs text-muted-foreground">Repository</Table.Head>
-							<Table.Head class="text-xs text-muted-foreground">Cases</Table.Head>
-							<Table.Head class="text-xs text-muted-foreground">Latest run</Table.Head>
-							<Table.Head class="pr-5 text-xs text-muted-foreground">Score</Table.Head>
-						</Table.Row>
-					</Table.Header>
-					<Table.Body>
-						{#each data.suites as suite (suite.publicId)}
-							<Table.Row class="border-border/60 transition-colors hover:bg-secondary/30">
-								<Table.Cell class="py-3 pl-5">
+		{#if data.suites.length}
+			<Table.Root>
+				<Table.Header>
+					<Table.Row class="border-border/60 hover:bg-transparent">
+						<Table.Head class="pl-5 text-xs text-muted-foreground">Suite</Table.Head>
+						<Table.Head class="text-xs text-muted-foreground">Repository</Table.Head>
+						<Table.Head class="text-xs text-muted-foreground">Cases</Table.Head>
+						<Table.Head class="text-xs text-muted-foreground">Latest run</Table.Head>
+						<Table.Head class="pr-5 text-xs text-muted-foreground">Score</Table.Head>
+					</Table.Row>
+				</Table.Header>
+				<Table.Body>
+					{#each data.suites as suite (suite.publicId)}
+						<Table.Row class="border-border/60 transition-colors hover:bg-secondary/30">
+							<Table.Cell class="py-3 pl-5">
+								<a
+									class="text-sm font-medium tracking-tight hover:text-primary"
+									href={resolve(`/regression/${suite.publicId}`)}
+								>
+									{suite.name}
+								</a>
+							</Table.Cell>
+							<Table.Cell class="font-mono text-xs text-muted-foreground">
+								{suite.repositoryOwner}/{suite.repositoryName}
+							</Table.Cell>
+							<Table.Cell class="font-mono text-xs">{suite.caseCount}</Table.Cell>
+							<Table.Cell>
+								{#if suite.latestRun}
 									<a
-										class="text-sm font-medium tracking-tight hover:text-primary"
-										href={resolve(`/regression/${suite.publicId}`)}
+										class="hover:underline"
+										href={resolve(`/regression/runs/${suite.latestRun.id}`)}
 									>
-										{suite.name}
+										<StatusPill status={suite.latestRun.status} />
 									</a>
-								</Table.Cell>
-								<Table.Cell class="font-mono text-xs text-muted-foreground">
-									{suite.repositoryOwner}/{suite.repositoryName}
-								</Table.Cell>
-								<Table.Cell class="font-mono text-xs">{suite.caseCount}</Table.Cell>
-								<Table.Cell>
-									{#if suite.latestRun}
-										<a
-											class="hover:underline"
-											href={resolve(`/regression/runs/${suite.latestRun.id}`)}
-										>
-											<StatusPill status={suite.latestRun.status} />
-										</a>
-									{:else}
-										<span class="text-xs text-muted-foreground">—</span>
-									{/if}
-								</Table.Cell>
-								<Table.Cell class="pr-5 font-mono text-xs">
-									{suite.latestRun?.aggregateScore ?? '—'}
-								</Table.Cell>
-							</Table.Row>
-						{/each}
-					</Table.Body>
-				</Table.Root>
-			{:else}
-				<div class="flex flex-col items-center gap-4 px-6 py-16 text-center">
-					<div class="flex size-12 items-center justify-center rounded-full bg-secondary/60">
-						<ShieldCheck class="size-5 text-muted-foreground" />
-					</div>
-					<div>
-						<p class="text-sm font-semibold tracking-tight">No regression suites yet</p>
-						<p class="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
-							Create a suite for a GitHub repository, add goal-based cases, and FlightLog will
-							evaluate agent runs and report scores to GitHub Checks.
-						</p>
-					</div>
-					<Button class="mt-2 h-8 gap-1.5" onclick={() => (createOpen = true)}>
-						<Plus class="size-3.5" />
-						New suite
-					</Button>
+								{:else}
+									<span class="text-xs text-muted-foreground">—</span>
+								{/if}
+							</Table.Cell>
+							<Table.Cell class="pr-5 font-mono text-xs">
+								{suite.latestRun?.aggregateScore ?? '—'}
+							</Table.Cell>
+						</Table.Row>
+					{/each}
+				</Table.Body>
+			</Table.Root>
+		{:else}
+			<div class="flex flex-col items-center gap-4 px-6 py-16 text-center">
+				<div class="flex size-12 items-center justify-center rounded-full bg-secondary/60">
+					<ShieldCheck class="size-5 text-muted-foreground" />
 				</div>
-			{/if}
-		{/snippet}
+				<div>
+					<p class="text-sm font-semibold tracking-tight">No regression suites yet</p>
+					<p class="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
+						Create a suite for a GitHub repository, add goal-based cases, and FlightLog will
+						evaluate agent runs and report scores to GitHub Checks.
+					</p>
+				</div>
+				<Button class="mt-2 h-8 gap-1.5" onclick={() => (createOpen = true)}>
+					<Plus class="size-3.5" />
+					New suite
+				</Button>
+			</div>
+		{/if}
 	</Section>
 </div>
 

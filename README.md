@@ -13,6 +13,7 @@ bun run db:up
 bun run db:push
 bun run check
 bun run lint
+bun run test
 ```
 
 ### Database (local vs production)

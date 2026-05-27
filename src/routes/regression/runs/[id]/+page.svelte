@@ -67,44 +67,42 @@
 	</div>
 
 	<Section title="Cases" padded={false}>
-		{#snippet children()}
-			<Table.Root>
-				<Table.Header>
-					<Table.Row class="border-border/60 hover:bg-transparent">
-						<Table.Head class="pl-5 text-xs text-muted-foreground">Case</Table.Head>
-						<Table.Head class="text-xs text-muted-foreground">Status</Table.Head>
-						<Table.Head class="text-xs text-muted-foreground">Score</Table.Head>
-						<Table.Head class="text-xs text-muted-foreground">Trace</Table.Head>
-						<Table.Head class="pr-5 text-xs text-muted-foreground">Reason</Table.Head>
+		<Table.Root>
+			<Table.Header>
+				<Table.Row class="border-border/60 hover:bg-transparent">
+					<Table.Head class="pl-5 text-xs text-muted-foreground">Case</Table.Head>
+					<Table.Head class="text-xs text-muted-foreground">Status</Table.Head>
+					<Table.Head class="text-xs text-muted-foreground">Score</Table.Head>
+					<Table.Head class="text-xs text-muted-foreground">Trace</Table.Head>
+					<Table.Head class="pr-5 text-xs text-muted-foreground">Reason</Table.Head>
+				</Table.Row>
+			</Table.Header>
+			<Table.Body>
+				{#each data.caseRuns as caseRun (caseRun.publicId)}
+					<Table.Row class="border-border/60">
+						<Table.Cell class="pl-5 text-sm font-medium tracking-tight"
+							>{caseRun.testCase.name}</Table.Cell
+						>
+						<Table.Cell><StatusPill status={caseRun.status} /></Table.Cell>
+						<Table.Cell class="font-mono text-xs">{caseRun.score ?? '—'}</Table.Cell>
+						<Table.Cell class="font-mono text-xs">
+							{#if caseRun.runPublicId}
+								<a
+									class="hover:text-primary hover:underline"
+									href={resolve(`/runs/${caseRun.runPublicId}`)}
+								>
+									Open trace →
+								</a>
+							{:else}
+								<span class="text-muted-foreground">—</span>
+							{/if}
+						</Table.Cell>
+						<Table.Cell class="pr-5 text-xs text-muted-foreground">
+							{caseRun.failureReason ?? '—'}
+						</Table.Cell>
 					</Table.Row>
-				</Table.Header>
-				<Table.Body>
-					{#each data.caseRuns as caseRun (caseRun.publicId)}
-						<Table.Row class="border-border/60">
-							<Table.Cell class="pl-5 text-sm font-medium tracking-tight"
-								>{caseRun.testCase.name}</Table.Cell
-							>
-							<Table.Cell><StatusPill status={caseRun.status} /></Table.Cell>
-							<Table.Cell class="font-mono text-xs">{caseRun.score ?? '—'}</Table.Cell>
-							<Table.Cell class="font-mono text-xs">
-								{#if caseRun.runPublicId}
-									<a
-										class="hover:text-primary hover:underline"
-										href={resolve(`/runs/${caseRun.runPublicId}`)}
-									>
-										Open trace →
-									</a>
-								{:else}
-									<span class="text-muted-foreground">—</span>
-								{/if}
-							</Table.Cell>
-							<Table.Cell class="pr-5 text-xs text-muted-foreground">
-								{caseRun.failureReason ?? '—'}
-							</Table.Cell>
-						</Table.Row>
-					{/each}
-				</Table.Body>
-			</Table.Root>
-		{/snippet}
+				{/each}
+			</Table.Body>
+		</Table.Root>
 	</Section>
 </div>
