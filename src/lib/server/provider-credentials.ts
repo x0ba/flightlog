@@ -119,6 +119,7 @@ export async function getProviderApiKey(
 		.limit(1);
 	if (!row || !row.isEnabled) return undefined;
 	if (provider && row.provider !== provider) return undefined;
+	if (row.authType !== 'api_key' || !row.encryptedApiKey) return undefined;
 	return {
 		credential: redactCredential(row),
 		apiKey: decryptSecret(row.encryptedApiKey),
@@ -133,7 +134,7 @@ function redactCredential(row: typeof providerCredentials.$inferSelect) {
 		authType: row.authType,
 		label: row.label,
 		accountEmail: row.accountEmail ?? undefined,
-		keyPreview: row.keyPreview,
+		keyPreview: row.keyPreview ?? 'ChatGPT OAuth',
 		projectId: row.browserbaseProjectId ?? undefined,
 		isEnabled: row.isEnabled,
 		createdAt: row.createdAt,
