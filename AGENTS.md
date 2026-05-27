@@ -38,3 +38,4 @@ The SDK/API layer should let the agent log:
 
 - Whenever making new UI, use shadcn components by adding them using `bunx shadcn-svelte@latest add <component>`.
 - When editing the shape of the data: prefer changing the schema.ts file over writing SQL migration files.
+- PRs should be made to staging, not main.
