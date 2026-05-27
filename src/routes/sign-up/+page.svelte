@@ -1,4 +1,7 @@
 <script lang="ts">
+	import AuthWidgetLoading from '$lib/components/auth-widget-loading.svelte';
+	import ClerkLoaded from 'clerk-sveltekit/client/ClerkLoaded.svelte';
+	import ClerkLoading from 'clerk-sveltekit/client/ClerkLoading.svelte';
 	import SignUp from 'clerk-sveltekit/client/SignUp.svelte';
 </script>
 
@@ -12,6 +15,11 @@
 			</p>
 			<h1 class="mt-2 text-2xl font-semibold text-foreground">Create your FlightLog account</h1>
 		</div>
-		<SignUp redirectUrl="/runs" signInUrl="/sign-in" />
+		<ClerkLoading>
+			<AuthWidgetLoading />
+		</ClerkLoading>
+		<ClerkLoaded>
+			<SignUp redirectUrl="/runs" signInUrl="/sign-in" />
+		</ClerkLoaded>
 	</section>
 </main>

@@ -1,6 +1,13 @@
 import { env } from '$env/dynamic/private';
 import { verifyToken } from '@clerk/backend';
+import { readPostAuthRedirectUrl as readPostAuthRedirectUrlFromSearchParams } from '$lib/auth-redirect';
 import { error, redirect, type RequestEvent } from '@sveltejs/kit';
+
+export { safeRedirectPath } from '$lib/auth-redirect';
+
+export function readPostAuthRedirectUrl(event: RequestEvent, fallback?: string) {
+	return readPostAuthRedirectUrlFromSearchParams(event.url.searchParams, fallback);
+}
 
 export function readUserId(event: RequestEvent) {
 	return event.locals.auth?.userId ?? event.locals.session?.userId;
