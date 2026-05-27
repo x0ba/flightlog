@@ -73,7 +73,7 @@ jobs:
 <div class="page">
 	<header class="nav-wrap" class:is-floating={scrolled}>
 		<div class="nav" class:is-floating={scrolled}>
-			<a href="/" class="brand">
+			<a href={resolve('/')} class="brand">
 				<span class="brand-mark">
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
 						<path
@@ -175,7 +175,7 @@ jobs:
 		<p>FlightLog · agent observability</p>
 		<div>
 			<a href="https://github.com/x0ba/flightlog">GitHub</a>
-			<a href="/docs">Docs</a>
+			<a href={resolve('/docs')}>Docs</a>
 			<a href={resolve('/runs')}>Dashboard</a>
 		</div>
 	</footer>
