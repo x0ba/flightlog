@@ -35,6 +35,7 @@ export async function createProviderCredential(ownerUserId: string, input: Creat
 			publicId: publicId('cred'),
 			ownerUserId,
 			provider: input.provider,
+			authType: 'api_key',
 			label: input.label,
 			encryptedApiKey: encryptSecret(input.apiKey),
 			keyPreview: previewKey(input.apiKey),
@@ -129,7 +130,9 @@ function redactCredential(row: typeof providerCredentials.$inferSelect) {
 	return {
 		id: row.publicId,
 		provider: row.provider,
+		authType: row.authType,
 		label: row.label,
+		accountEmail: row.accountEmail ?? undefined,
 		keyPreview: row.keyPreview,
 		projectId: row.browserbaseProjectId ?? undefined,
 		isEnabled: row.isEnabled,
