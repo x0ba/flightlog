@@ -5,7 +5,9 @@ import { providerCredentials } from '$lib/server/db/schema';
 import { resetDatabase } from '../../../../test/helpers/db';
 import { createChatGptOAuthCredential } from '$lib/server/provider-credentials';
 import { getProviderApiKey } from '$lib/server/provider-credentials';
+import { decryptSecret } from '$lib/server/crypto/keys';
 import * as session from './session';
+import { parseSessionJson } from './session';
 
 describe('resolveOpenAICredential integration', () => {
 	beforeEach(async () => {
@@ -55,6 +57,12 @@ describe('resolveOpenAICredential integration', () => {
 			.where(eq(providerCredentials.publicId, credential.id))
 			.limit(1);
 		expect(row?.isEnabled).toBe(true);
+		expect(row?.encryptedOAuthSession).toBeTruthy();
+		expect(row?.encryptedApiKey).toBeTruthy();
+		const persisted = parseSessionJson(decryptSecret(row!.encryptedOAuthSession!));
+		expect(persisted.apiKey).toBe('sk-refreshed');
+		expect(persisted.refreshToken).toBe('refresh-new');
+		expect(decryptSecret(row!.encryptedApiKey)).toBe('sk-refreshed');
 	});
 
 	it('disables credential when refresh fails', async () => {

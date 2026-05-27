@@ -152,7 +152,7 @@ export async function getProviderApiKey(
 
 	if (row.provider === 'openai' && row.authType === 'chatgpt_oauth') {
 		const { resolveOpenAICredential } = await import('$lib/server/openai-oauth/resolve');
-		const resolved = await resolveOpenAICredential(ownerUserId, publicCredentialId);
+		const resolved = await resolveOpenAICredential(ownerUserId, row);
 		if (!resolved) return undefined;
 		return {
 			credential: redactCredential(resolved.row),
