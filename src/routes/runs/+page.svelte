@@ -93,6 +93,10 @@
 			credentialError = 'Enter a label and API key.';
 			return;
 		}
+		if (credentialProvider === 'browserbase' && !credentialProjectId.trim()) {
+			credentialError = 'Enter a Browserbase project ID.';
+			return;
+		}
 		const response = await fetch('/api/settings/providers', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
@@ -200,7 +204,7 @@
 		{#snippet actions()}
 			<Button variant="outline" class="h-9 gap-1.5" onclick={() => (keysOpen = true)} type="button">
 				<KeyRound class="size-3.5" />
-				Agent keys
+				Provider keys
 				<span class="ml-1 font-mono text-[10px] text-muted-foreground">{credentials.length}</span>
 			</Button>
 			<Button class="h-9 gap-1.5" onclick={() => (newRunOpen = true)} type="button">
@@ -607,9 +611,10 @@
 <Sheet.Root bind:open={keysOpen}>
 	<Sheet.Content class="w-full overflow-y-auto sm:max-w-md">
 		<Sheet.Header class="px-6 pt-6">
-			<Sheet.Title class="tracking-tight">Agent keys</Sheet.Title>
+			<Sheet.Title class="tracking-tight">Provider keys</Sheet.Title>
 			<Sheet.Description>
-				Encrypted at rest. Keys are never shown again after save—only masked previews.
+				OpenAI, Anthropic, and Browserbase keys are encrypted at rest per account. Keys are never
+				shown again after save—only masked previews.
 			</Sheet.Description>
 		</Sheet.Header>
 		<div class="flex flex-col gap-5 px-6 pt-4 pb-6">
@@ -676,7 +681,7 @@
 					<Input
 						class="text-xs"
 						bind:value={credentialProjectId}
-						placeholder="Project ID (optional)"
+						placeholder="Project ID (required)"
 						autocomplete="off"
 					/>
 				{/if}

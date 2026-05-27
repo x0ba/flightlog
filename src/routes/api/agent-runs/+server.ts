@@ -11,8 +11,15 @@ export async function POST(event) {
 	if (input.runMode === 'tool_agent' && (!input.credentialId || !input.model)) {
 		throw error(400, { message: 'Tool-agent runs require credentialId and model.' });
 	}
-	if (input.runMode === 'browser' && input.provider !== 'openai') {
-		throw error(400, { message: 'Browser runs currently require OpenAI.' });
+	if (input.runMode === 'browser') {
+		if (input.provider !== 'openai') {
+			throw error(400, { message: 'Browser runs currently require OpenAI.' });
+		}
+		if (!input.credentialId || !input.browserbaseCredentialId) {
+			throw error(400, {
+				message: 'Browser runs require credentialId and browserbaseCredentialId.'
+			});
+		}
 	}
 	const run = await createAgentRun({ ...input, ownerUserId: userId });
 	return ok(

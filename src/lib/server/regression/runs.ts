@@ -27,6 +27,7 @@ type AgentConfig = {
 	framework?: 'native' | 'ai-sdk' | 'langchain' | 'custom';
 	model?: string;
 	credentialId?: string;
+	browserbaseCredentialId?: string;
 	tools?: string[];
 	approvalPolicy?: 'risk_based' | 'always' | 'never';
 	maxSteps?: number;
@@ -321,6 +322,7 @@ async function executeRegressionCase(input: {
 		framework: agentConfig.framework ?? 'native',
 		model: agentConfig.model,
 		credentialId: agentConfig.credentialId,
+		browserbaseCredentialId: agentConfig.browserbaseCredentialId,
 		tools: agentConfig.tools,
 		approvalPolicy: agentConfig.approvalPolicy ?? 'risk_based',
 		maxSteps: agentConfig.maxSteps,

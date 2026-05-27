@@ -1,4 +1,3 @@
-import { env } from '$env/dynamic/private';
 import Browserbase from '@browserbasehq/sdk';
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import type { ComputerAction } from './types';
@@ -13,22 +12,18 @@ export type BrowserSession = {
 	close: () => Promise<void>;
 };
 
-let browserbase: Browserbase | undefined;
+export type BrowserSessionCredentials = {
+	apiKey: string;
+	projectId: string;
+};
 
-function browserbaseClient() {
-	if (!env.BROWSERBASE_API_KEY) throw new Error('BROWSERBASE_API_KEY is not set');
-	browserbase ??= new Browserbase({ apiKey: env.BROWSERBASE_API_KEY });
-	return browserbase;
-}
-
-export function hasBrowserbaseConfig() {
-	return Boolean(env.BROWSERBASE_API_KEY);
-}
-
-export async function createBrowserSession(initialUrl = 'about:blank'): Promise<BrowserSession> {
-	const client = browserbaseClient();
+export async function createBrowserSession(
+	credentials: BrowserSessionCredentials,
+	initialUrl = 'about:blank'
+): Promise<BrowserSession> {
+	const client = new Browserbase({ apiKey: credentials.apiKey });
 	const browserbaseSession = await client.sessions.create({
-		projectId: env.BROWSERBASE_PROJECT_ID || undefined,
+		projectId: credentials.projectId,
 		browserSettings: {
 			viewport: { width: 1024, height: 768 },
 			recordSession: true,

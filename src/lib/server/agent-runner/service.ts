@@ -8,9 +8,10 @@ import { appendEvent, listEvents } from '$lib/server/events';
 import { evaluateRun } from '$lib/server/evaluation/service';
 import { findRun, patchRunMetadata, updateRun } from '$lib/server/runs';
 import { listSpans } from '$lib/server/traces';
-import { createBrowserSession, hasBrowserbaseConfig } from './browser';
+import { createBrowserSession } from './browser';
 import { needsApproval, resolveApproval, waitForApproval } from './approval';
-import { continueComputerResponse, createInitialComputerResponse, hasOpenAiKey } from './openai';
+import { continueComputerResponse, createInitialComputerResponse } from './openai';
+import { getProviderApiKey } from '$lib/server/provider-credentials';
 import { publishRunEvent } from './stream';
 import { runToolAgent } from './tool-agent';
 import type {
@@ -39,6 +40,7 @@ export async function createAgentRun(input: {
 	framework?: 'native' | 'ai-sdk' | 'langchain' | 'custom';
 	model?: string;
 	credentialId?: string;
+	browserbaseCredentialId?: string;
 	tools?: string[];
 	approvalPolicy?: 'risk_based' | 'always' | 'never';
 	maxSteps?: number;
@@ -67,6 +69,7 @@ export async function createAgentRun(input: {
 				framework: input.framework ?? 'native',
 				model,
 				credentialId: input.credentialId,
+				browserbaseCredentialId: input.browserbaseCredentialId,
 				runMode,
 				tools: input.tools ?? [],
 				approvalPolicy: input.approvalPolicy ?? 'risk_based',
@@ -175,14 +178,41 @@ async function runAgent(publicRunId: string) {
 		return;
 	}
 
-	if (!hasOpenAiKey()) {
-		await failRun(publicRunId, 'OPENAI_API_KEY is not set');
+	if (!initialRun.ownerUserId) {
+		await failRun(publicRunId, 'Run is missing an owner user id.');
 		return;
 	}
-	if (!hasBrowserbaseConfig()) {
-		await failRun(publicRunId, 'BROWSERBASE_API_KEY is not set');
+	const openAiCredentialId = initialAgentRequest.credentialId;
+	const browserbaseCredentialId = initialAgentRequest.browserbaseCredentialId;
+	if (!openAiCredentialId || !browserbaseCredentialId) {
+		await failRun(publicRunId, 'Browser runs require saved OpenAI and Browserbase credentials.');
 		return;
 	}
+
+	const [openAiCredential, browserbaseCredential] = await Promise.all([
+		getProviderApiKey(initialRun.ownerUserId, openAiCredentialId, 'openai'),
+		getProviderApiKey(initialRun.ownerUserId, browserbaseCredentialId, 'browserbase')
+	]);
+	if (!openAiCredential) {
+		await failRun(publicRunId, 'OpenAI credential was not found or is disabled.');
+		return;
+	}
+	if (!browserbaseCredential?.projectId) {
+		await failRun(
+			publicRunId,
+			'Browserbase credential was not found, is disabled, or is missing a project ID.'
+		);
+		return;
+	}
+
+	const computerUseCredentials = {
+		apiKey: openAiCredential.apiKey,
+		model: initialAgentRequest.model
+	};
+	const browserCredentials = {
+		apiKey: browserbaseCredential.apiKey,
+		projectId: browserbaseCredential.projectId
+	};
 
 	let session: Awaited<ReturnType<typeof createBrowserSession>> | undefined;
 	let response: OpenAIComputerResponse | undefined;
@@ -199,7 +229,10 @@ async function runAgent(publicRunId: string) {
 		const runningRun = await findRun(publicRunId);
 		if (runningRun) publishRunEvent(publicRunId, { type: 'run', data: runningRun });
 
-		session = await createBrowserSession(startUrlForPrompt(initialAgentRequest.prompt));
+		session = await createBrowserSession(
+			browserCredentials,
+			startUrlForPrompt(initialAgentRequest.prompt)
+		);
 		await patchRunMetadata(publicRunId, {
 			browserbase: {
 				sessionId: session.browserbaseSessionId,
@@ -219,7 +252,11 @@ async function runAgent(publicRunId: string) {
 			}
 		});
 
-		response = await createInitialComputerResponse(initialAgentRequest.prompt, initialScreenshot);
+		response = await createInitialComputerResponse(
+			initialAgentRequest.prompt,
+			initialScreenshot,
+			computerUseCredentials
+		);
 		await setResponseMetadata(publicRunId, response.id, stepCount);
 
 		while (stepCount < maxSteps) {
@@ -322,6 +359,7 @@ async function runAgent(publicRunId: string) {
 			}
 
 			response = await continueComputerResponse({
+				credentials: computerUseCredentials,
 				previousResponseId: response.id,
 				callId: call.call_id,
 				screenshotDataUrl: screenshot,

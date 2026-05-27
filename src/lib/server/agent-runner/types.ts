@@ -45,6 +45,7 @@ export type AgentRequestMetadata = {
 	framework?: 'native' | 'ai-sdk' | 'langchain' | 'custom';
 	model?: string;
 	credentialId?: string;
+	browserbaseCredentialId?: string;
 	runMode?: 'browser' | 'tool_agent';
 	tools?: string[];
 	approvalPolicy?: 'risk_based' | 'always' | 'never';
