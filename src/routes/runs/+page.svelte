@@ -15,16 +15,17 @@
 	import StatusPill from '$lib/components/status-pill.svelte';
 
 	let { data } = $props();
+	const initialForm = readInitialFormState();
 	let prompt = $state('');
 	let runName = $state('');
 	let runMode = $state<'tool_agent' | 'browser'>('tool_agent');
 	let provider = $state<'openai' | 'anthropic'>('openai');
 	let framework = $state<'native' | 'ai-sdk' | 'langchain' | 'custom'>('native');
-	let model = $state<string>(data.modelCatalog.openai[0]);
+	let model = $state<string>(initialForm.model);
 	let customModel = $state('');
 	let credentialId = $state('');
 	let browserbaseCredentialId = $state('');
-	let selectedTools = $state<string[]>([...data.tools]);
+	let selectedTools = $state<string[]>(initialForm.tools);
 	let approvalPolicy = $state<'risk_based' | 'always' | 'never'>('risk_based');
 	let maxSteps = $state(12);
 	let credentialProvider = $state<'openai' | 'anthropic' | 'browserbase'>('openai');
@@ -34,7 +35,7 @@
 	let credentialError = $state('');
 	let promptError = $state('');
 	let creatingRun = $state(false);
-	let credentials = $state([...data.credentials]);
+	let credentials = $state(initialForm.credentials);
 	let newRunOpen = $state(false);
 	let keysOpen = $state(false);
 	const emptyCurl = `curl -X POST http://localhost:5173/api/runs \\
@@ -191,6 +192,14 @@
 		}
 		if (runMode === 'browser') provider = 'openai';
 	});
+
+	function readInitialFormState() {
+		return {
+			model: data.modelCatalog.openai[0],
+			tools: [...data.tools],
+			credentials: [...data.credentials]
+		};
+	}
 </script>
 
 <svelte:head><title>Runs · FlightLog</title></svelte:head>
