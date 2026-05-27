@@ -15,16 +15,17 @@
 	import StatusPill from '$lib/components/status-pill.svelte';
 
 	let { data } = $props();
+	const initialForm = readInitialFormState();
 	let prompt = $state('');
 	let runName = $state('');
 	let runMode = $state<'tool_agent' | 'browser'>('tool_agent');
 	let provider = $state<'openai' | 'anthropic'>('openai');
 	let framework = $state<'native' | 'ai-sdk' | 'langchain' | 'custom'>('native');
-	let model = $state<string>(data.modelCatalog.openai[0]);
+	let model = $state<string>(initialForm.model);
 	let customModel = $state('');
 	let credentialId = $state('');
 	let browserbaseCredentialId = $state('');
-	let selectedTools = $state<string[]>([...data.tools]);
+	let selectedTools = $state<string[]>(initialForm.tools);
 	let approvalPolicy = $state<'risk_based' | 'always' | 'never'>('risk_based');
 	let maxSteps = $state(12);
 	let credentialProvider = $state<'openai' | 'anthropic' | 'browserbase'>('openai');
@@ -34,7 +35,7 @@
 	let credentialError = $state('');
 	let promptError = $state('');
 	let creatingRun = $state(false);
-	let credentials = $state([...data.credentials]);
+	let credentials = $state(initialForm.credentials);
 	let newRunOpen = $state(false);
 	let keysOpen = $state(false);
 	const emptyCurl = `curl -X POST http://localhost:5173/api/runs \\
@@ -191,6 +192,14 @@
 		}
 		if (runMode === 'browser') provider = 'openai';
 	});
+
+	function readInitialFormState() {
+		return {
+			model: data.modelCatalog.openai[0],
+			tools: [...data.tools],
+			credentials: [...data.credentials]
+		};
+	}
 </script>
 
 <svelte:head><title>Runs · FlightLog</title></svelte:head>
@@ -270,67 +279,65 @@
 				<Button class="h-8 px-3 text-xs" type="submit" variant="secondary">Filter</Button>
 			</form>
 		{/snippet}
-		{#snippet children()}
-			{#if data.runs.length}
-				<Table.Root>
-					<Table.Header>
-						<Table.Row class="border-border/60 hover:bg-transparent">
-							<Table.Head class="pl-5 text-xs text-muted-foreground">Run</Table.Head>
-							<Table.Head class="text-xs text-muted-foreground">Status</Table.Head>
-							<Table.Head class="text-xs text-muted-foreground">Agent</Table.Head>
-							<Table.Head class="text-xs text-muted-foreground">Events</Table.Head>
-							<Table.Head class="text-xs text-muted-foreground">Eval</Table.Head>
-							<Table.Head class="pr-5 text-xs text-muted-foreground">Started</Table.Head>
+		{#if data.runs.length}
+			<Table.Root>
+				<Table.Header>
+					<Table.Row class="border-border/60 hover:bg-transparent">
+						<Table.Head class="pl-5 text-xs text-muted-foreground">Run</Table.Head>
+						<Table.Head class="text-xs text-muted-foreground">Status</Table.Head>
+						<Table.Head class="text-xs text-muted-foreground">Agent</Table.Head>
+						<Table.Head class="text-xs text-muted-foreground">Events</Table.Head>
+						<Table.Head class="text-xs text-muted-foreground">Eval</Table.Head>
+						<Table.Head class="pr-5 text-xs text-muted-foreground">Started</Table.Head>
+					</Table.Row>
+				</Table.Header>
+				<Table.Body>
+					{#each data.runs as run (run.id)}
+						<Table.Row class="border-border/60 transition-colors hover:bg-secondary/30">
+							<Table.Cell class="py-3 pl-5">
+								<a
+									class="text-sm font-medium tracking-tight transition-colors hover:text-primary"
+									href={resolve(`/runs/${run.id}`)}
+								>
+									{run.name ?? 'Untitled run'}
+								</a>
+								<p class="line-clamp-1 max-w-md text-xs text-muted-foreground">{run.goal}</p>
+							</Table.Cell>
+							<Table.Cell><StatusPill status={run.status} /></Table.Cell>
+							<Table.Cell class="font-mono text-xs text-muted-foreground"
+								>{run.agentName ?? '—'}</Table.Cell
+							>
+							<Table.Cell class="font-mono text-xs">{run.eventCount}</Table.Cell>
+							<Table.Cell class="font-mono text-xs">
+								{run.latestEvaluationScore === null ? '—' : run.latestEvaluationScore}
+							</Table.Cell>
+							<Table.Cell class="pr-5 font-mono text-xs text-muted-foreground"
+								>{formatDate(run.startedAt)}</Table.Cell
+							>
 						</Table.Row>
-					</Table.Header>
-					<Table.Body>
-						{#each data.runs as run (run.id)}
-							<Table.Row class="border-border/60 transition-colors hover:bg-secondary/30">
-								<Table.Cell class="py-3 pl-5">
-									<a
-										class="text-sm font-medium tracking-tight transition-colors hover:text-primary"
-										href={resolve(`/runs/${run.id}`)}
-									>
-										{run.name ?? 'Untitled run'}
-									</a>
-									<p class="line-clamp-1 max-w-md text-xs text-muted-foreground">{run.goal}</p>
-								</Table.Cell>
-								<Table.Cell><StatusPill status={run.status} /></Table.Cell>
-								<Table.Cell class="font-mono text-xs text-muted-foreground"
-									>{run.agentName ?? '—'}</Table.Cell
-								>
-								<Table.Cell class="font-mono text-xs">{run.eventCount}</Table.Cell>
-								<Table.Cell class="font-mono text-xs">
-									{run.latestEvaluationScore === null ? '—' : run.latestEvaluationScore}
-								</Table.Cell>
-								<Table.Cell class="pr-5 font-mono text-xs text-muted-foreground"
-									>{formatDate(run.startedAt)}</Table.Cell
-								>
-							</Table.Row>
-						{/each}
-					</Table.Body>
-				</Table.Root>
-				<div
-					class="flex items-center justify-between border-t border-border/60 px-5 py-2.5 text-xs text-muted-foreground"
-				>
-					<span>{data.total} total</span>
+					{/each}
+				</Table.Body>
+			</Table.Root>
+			<div
+				class="flex items-center justify-between border-t border-border/60 px-5 py-2.5 text-xs text-muted-foreground"
+			>
+				<span>{data.total} total</span>
+			</div>
+		{:else}
+			<div class="flex flex-col items-center gap-4 px-6 py-16 text-center">
+				<div class="flex size-12 items-center justify-center rounded-full bg-secondary/60">
+					<Terminal class="size-5 text-muted-foreground" />
 				</div>
-			{:else}
-				<div class="flex flex-col items-center gap-4 px-6 py-16 text-center">
-					<div class="flex size-12 items-center justify-center rounded-full bg-secondary/60">
-						<Terminal class="size-5 text-muted-foreground" />
-					</div>
-					<div>
-						<p class="text-sm font-semibold tracking-tight">No runs yet</p>
-						<p class="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
-							Log agent traces with the ingest API or launch a new run to get started.
-						</p>
-					</div>
-					<pre
-						class="mt-2 max-w-lg overflow-auto rounded-lg border border-border/60 bg-background p-4 text-left font-mono text-[11px] text-muted-foreground">{emptyCurl}</pre>
+				<div>
+					<p class="text-sm font-semibold tracking-tight">No runs yet</p>
+					<p class="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
+						Log agent traces with the ingest API or launch a new run to get started.
+					</p>
 				</div>
-			{/if}
-		{/snippet}
+				<pre
+					class="mt-2 max-w-lg overflow-auto rounded-lg border border-border/60 bg-background p-4 text-left font-mono text-[11px] text-muted-foreground">{emptyCurl}</pre>
+			</div>
+		{/if}
 	</Section>
 </div>
 

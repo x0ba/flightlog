@@ -118,63 +118,57 @@
 
 	<div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
 		<Section title="Cases" padded={false}>
-			{#snippet children()}
-				{#if data.suite.cases.length}
-					<Table.Root>
-						<Table.Header>
-							<Table.Row class="border-border/60 hover:bg-transparent">
-								<Table.Head class="pl-5 text-xs text-muted-foreground">Name</Table.Head>
-								<Table.Head class="text-xs text-muted-foreground">Goal</Table.Head>
-								<Table.Head class="pr-5 text-xs text-muted-foreground">Min score</Table.Head>
+			{#if data.suite.cases.length}
+				<Table.Root>
+					<Table.Header>
+						<Table.Row class="border-border/60 hover:bg-transparent">
+							<Table.Head class="pl-5 text-xs text-muted-foreground">Name</Table.Head>
+							<Table.Head class="text-xs text-muted-foreground">Goal</Table.Head>
+							<Table.Head class="pr-5 text-xs text-muted-foreground">Min score</Table.Head>
+						</Table.Row>
+					</Table.Header>
+					<Table.Body>
+						{#each data.suite.cases as testCase (testCase.publicId)}
+							<Table.Row class="border-border/60">
+								<Table.Cell class="pl-5 text-sm font-medium tracking-tight"
+									>{testCase.name}</Table.Cell
+								>
+								<Table.Cell class="max-w-md truncate text-xs text-muted-foreground">
+									{testCase.goal}
+								</Table.Cell>
+								<Table.Cell class="pr-5 font-mono text-xs">{testCase.minScore}</Table.Cell>
 							</Table.Row>
-						</Table.Header>
-						<Table.Body>
-							{#each data.suite.cases as testCase (testCase.publicId)}
-								<Table.Row class="border-border/60">
-									<Table.Cell class="pl-5 text-sm font-medium tracking-tight"
-										>{testCase.name}</Table.Cell
-									>
-									<Table.Cell class="max-w-md truncate text-xs text-muted-foreground">
-										{testCase.goal}
-									</Table.Cell>
-									<Table.Cell class="pr-5 font-mono text-xs">{testCase.minScore}</Table.Cell>
-								</Table.Row>
-							{/each}
-						</Table.Body>
-					</Table.Root>
-				{:else}
-					<div class="px-6 py-12 text-center">
-						<p class="text-sm font-medium tracking-tight">No cases yet</p>
-						<p class="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
-							Add at least one goal-based case before running this suite.
-						</p>
-						<Button class="mt-4 h-8 gap-1.5" onclick={() => (addCaseOpen = true)}>
-							<Plus class="size-3.5" />
-							Add case
-						</Button>
-					</div>
-				{/if}
-			{/snippet}
+						{/each}
+					</Table.Body>
+				</Table.Root>
+			{:else}
+				<div class="px-6 py-12 text-center">
+					<p class="text-sm font-medium tracking-tight">No cases yet</p>
+					<p class="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
+						Add at least one goal-based case before running this suite.
+					</p>
+					<Button class="mt-4 h-8 gap-1.5" onclick={() => (addCaseOpen = true)}>
+						<Plus class="size-3.5" />
+						Add case
+					</Button>
+				</div>
+			{/if}
 		</Section>
 
 		<Section title="Recent runs">
-			{#snippet children()}
-				<div class="flex flex-col gap-1.5">
-					{#each data.runs as run (run.publicId)}
-						<a
-							class="flex items-center justify-between rounded-md border border-border/60 bg-background px-3 py-2.5 transition-colors hover:bg-secondary/40"
-							href={resolve(`/regression/runs/${run.publicId}`)}
-						>
-							<StatusPill status={run.status} />
-							<span class="font-mono text-xs text-muted-foreground"
-								>{run.aggregateScore ?? '—'}</span
-							>
-						</a>
-					{:else}
-						<p class="text-xs text-muted-foreground">No runs yet.</p>
-					{/each}
-				</div>
-			{/snippet}
+			<div class="flex flex-col gap-1.5">
+				{#each data.runs as run (run.publicId)}
+					<a
+						class="flex items-center justify-between rounded-md border border-border/60 bg-background px-3 py-2.5 transition-colors hover:bg-secondary/40"
+						href={resolve(`/regression/runs/${run.publicId}`)}
+					>
+						<StatusPill status={run.status} />
+						<span class="font-mono text-xs text-muted-foreground">{run.aggregateScore ?? '—'}</span>
+					</a>
+				{:else}
+					<p class="text-xs text-muted-foreground">No runs yet.</p>
+				{/each}
+			</div>
 		</Section>
 	</div>
 </div>
