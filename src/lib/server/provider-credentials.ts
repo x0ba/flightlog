@@ -33,6 +33,20 @@ export async function listProviderCredentials(ownerUserId: string) {
 	return rows.map(redactCredential);
 }
 
+export async function getRedactedProviderCredential(ownerUserId: string, publicCredentialId: string) {
+	const [row] = await db
+		.select()
+		.from(providerCredentials)
+		.where(
+			and(
+				eq(providerCredentials.publicId, publicCredentialId),
+				eq(providerCredentials.ownerUserId, ownerUserId)
+			)
+		)
+		.limit(1);
+	return row ? redactCredential(row) : undefined;
+}
+
 export async function createProviderCredential(ownerUserId: string, input: CreateCredentialInput) {
 	const [row] = await db
 		.insert(providerCredentials)

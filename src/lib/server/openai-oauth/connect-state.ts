@@ -30,16 +30,38 @@ export async function createDeviceConnectState(input: {
 }) {
 	const state = `device:${input.deviceAuthId}`;
 	const expiresAt = new Date(Date.now() + DEVICE_CODE_MAX_WAIT_MS);
-	await db.insert(oauthConnectStates).values({
+	const values = {
 		state,
 		ownerUserId: input.ownerUserId,
 		label: input.label,
 		deviceAuthId: input.deviceAuthId,
 		userCode: input.userCode,
 		pollIntervalMs: input.pollIntervalMs,
+		completedCredentialPublicId: null,
 		expiresAt
-	});
+	};
+	await db
+		.insert(oauthConnectStates)
+		.values(values)
+		.onConflictDoUpdate({
+			target: oauthConnectStates.deviceAuthId,
+			set: {
+				ownerUserId: input.ownerUserId,
+				label: input.label,
+				userCode: input.userCode,
+				pollIntervalMs: input.pollIntervalMs,
+				completedCredentialPublicId: null,
+				expiresAt
+			}
+		});
 	return { state, expiresAt };
+}
+
+export async function markDeviceConnectCompleted(state: string, credentialPublicId: string) {
+	await db
+		.update(oauthConnectStates)
+		.set({ completedCredentialPublicId: credentialPublicId })
+		.where(eq(oauthConnectStates.state, state));
 }
 
 export async function readConnectState(state: string) {
@@ -63,7 +85,7 @@ export async function readDeviceConnectState(deviceAuthId: string) {
 		.where(eq(oauthConnectStates.deviceAuthId, deviceAuthId))
 		.limit(1);
 	if (!row) return undefined;
-	if (row.expiresAt.getTime() < Date.now()) {
+	if (row.expiresAt.getTime() < Date.now() && !row.completedCredentialPublicId) {
 		await deleteConnectState(row.state);
 		return undefined;
 	}

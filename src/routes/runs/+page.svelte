@@ -54,6 +54,7 @@
 		pollIntervalMs: number;
 	} | null>(null);
 	let devicePollTimer: ReturnType<typeof setTimeout> | undefined;
+	let devicePollInFlight = false;
 	const emptyCurl = `curl -X POST http://localhost:5173/api/runs \\
   -H 'content-type: application/json' \\
   -d '{"goal":"Find product pricing without buying anything","name":"Pricing check"}'`;
@@ -250,14 +251,35 @@
 		void goto(url, { replaceState: true, keepFocus: true, noScroll: true });
 	}
 
+	async function recoverDeviceConnectAfterMissingSession() {
+		await invalidateAll();
+		const chatgptCredentials = data.credentials.filter(
+			(credential) => credential.authType === 'chatgpt_oauth'
+		);
+		const knownIds = new Set(credentials.map((credential) => credential.id));
+		const added = chatgptCredentials.find((credential) => !knownIds.has(credential.id));
+		if (!added) return false;
+		credentials = [...data.credentials];
+		credentialId = added.id;
+		connectNotice = `${added.label} connected.`;
+		deviceModalOpen = false;
+		deviceAuth = null;
+		chatgptConnectError = '';
+		return true;
+	}
+
 	async function pollDeviceStatus() {
-		if (!deviceAuth) return;
+		if (!deviceAuth || devicePollInFlight) return;
+		devicePollInFlight = true;
 		try {
 			const response = await fetch(
 				`/api/auth/openai/device/status?deviceAuthId=${encodeURIComponent(deviceAuth.deviceAuthId)}`
 			);
 			if (!response.ok) {
 				const message = await readDevicePollError(response);
+				if (response.status === 404 && (await recoverDeviceConnectAfterMissingSession())) {
+					return;
+				}
 				if (response.status >= 500 || response.status === 429) {
 					chatgptConnectError = message;
 					scheduleDevicePoll();
@@ -286,6 +308,8 @@
 		} catch {
 			chatgptConnectError = 'Device sign-in failed. Retrying…';
 			scheduleDevicePoll();
+		} finally {
+			devicePollInFlight = false;
 		}
 	}
 
