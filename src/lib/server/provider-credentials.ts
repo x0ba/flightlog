@@ -149,7 +149,20 @@ export async function getProviderApiKey(
 		.limit(1);
 	if (!row || !row.isEnabled) return undefined;
 	if (provider && row.provider !== provider) return undefined;
+
+	if (row.provider === 'openai' && row.authType === 'chatgpt_oauth') {
+		const { resolveOpenAICredential } = await import('$lib/server/openai-oauth/resolve');
+		const resolved = await resolveOpenAICredential(ownerUserId, row);
+		if (!resolved) return undefined;
+		return {
+			credential: redactCredential(resolved.row),
+			apiKey: resolved.apiKey,
+			projectId: resolved.row.browserbaseProjectId ?? undefined
+		};
+	}
+
 	if (row.authType !== 'api_key' || !row.encryptedApiKey) return undefined;
+
 	return {
 		credential: redactCredential(row),
 		apiKey: decryptSecret(row.encryptedApiKey),
