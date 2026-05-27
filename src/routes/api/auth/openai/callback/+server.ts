@@ -14,7 +14,7 @@ import { emailFromIdToken, sessionFromTokenResponse } from '$lib/server/openai-o
 import { OAUTH_STATE_COOKIE } from '../connect/+server';
 
 export async function GET(event) {
-	requireUserId(event);
+	const userId = requireUserId(event);
 	const config = readOpenAIOAuthConfig(event.url.origin);
 	if (!config.redirectUri) {
 		throw error(500, { message: 'OPENAI_OAUTH_REDIRECT_URI is not configured.' });
@@ -37,6 +37,9 @@ export async function GET(event) {
 	const connectState = await readConnectState(state);
 	if (!connectState || !connectState.codeVerifier) {
 		throw error(400, { message: 'OAuth session expired. Try connecting again.' });
+	}
+	if (connectState.ownerUserId !== userId) {
+		throw error(403, { message: 'OAuth session does not belong to this user.' });
 	}
 
 	event.cookies.delete(OAUTH_STATE_COOKIE, { path: '/' });

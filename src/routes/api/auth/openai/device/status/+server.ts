@@ -52,10 +52,16 @@ export async function GET(event) {
 
 	try {
 		const config = readOpenAIOAuthConfig(event.url.origin);
+		const { authorization_code, code_verifier } = poll.payload;
+		if (!authorization_code || !code_verifier) {
+			throw error(500, {
+				message: 'Device auth payload missing authorization_code or code_verifier.'
+			});
+		}
 		const tokens = await completeDeviceCodeLogin({
 			clientId: config.clientId,
-			authorizationCode: poll.payload.authorization_code!,
-			codeVerifier: poll.payload.code_verifier!
+			authorizationCode: authorization_code,
+			codeVerifier: code_verifier
 		});
 		const accountEmail = emailFromIdToken(tokens.id_token);
 		const session = sessionFromTokenResponse(tokens, config.clientId, accountEmail);
