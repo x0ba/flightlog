@@ -62,7 +62,7 @@ describe('resolveOpenAICredential integration', () => {
 		const persisted = parseSessionJson(decryptSecret(row!.encryptedOAuthSession!));
 		expect(persisted.apiKey).toBe('sk-refreshed');
 		expect(persisted.refreshToken).toBe('refresh-new');
-		expect(decryptSecret(row!.encryptedApiKey)).toBe('sk-refreshed');
+		expect(decryptSecret(row!.encryptedApiKey!)).toBe('sk-refreshed');
 	});
 
 	it('disables credential when refresh fails', async () => {

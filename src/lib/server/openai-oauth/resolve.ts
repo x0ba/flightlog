@@ -25,6 +25,7 @@ export async function resolveOpenAICredential(
 	}
 
 	if (row.authType === 'api_key') {
+		if (!row.encryptedApiKey) return undefined;
 		return {
 			row,
 			apiKey: decryptSecret(row.encryptedApiKey)
@@ -48,15 +49,19 @@ export async function resolveOpenAICredential(
 		return { row, apiKey: refreshed.apiKey };
 	} catch (cause) {
 		if (cause instanceof OAuthRefreshFailedError) {
-			await db
-				.update(providerCredentials)
-				.set({ isEnabled: false, updatedAt: new Date() })
-				.where(
-					and(
-						eq(providerCredentials.publicId, row.publicId),
-						eq(providerCredentials.ownerUserId, ownerUserId)
-					)
-				);
+			try {
+				await db
+					.update(providerCredentials)
+					.set({ isEnabled: false, updatedAt: new Date() })
+					.where(
+						and(
+							eq(providerCredentials.publicId, row.publicId),
+							eq(providerCredentials.ownerUserId, ownerUserId)
+						)
+					);
+			} catch (disableError) {
+				console.error('Failed to disable credential after OAuth refresh failure', disableError);
+			}
 		}
 		throw cause;
 	}
