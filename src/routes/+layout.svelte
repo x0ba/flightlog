@@ -16,7 +16,7 @@
 	<span class="sr-only">Signed in</span>
 {/if}
 {#if useShell}
-	<AppShell>
+	<AppShell userId={data.userId}>
 		{@render children()}
 	</AppShell>
 {:else}

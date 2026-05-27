@@ -1,9 +1,15 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import AuthWidgetLoading from '$lib/components/auth-widget-loading.svelte';
+	import ClerkLoaded from 'clerk-sveltekit/client/ClerkLoaded.svelte';
+	import ClerkLoading from 'clerk-sveltekit/client/ClerkLoading.svelte';
 	import SignIn from 'clerk-sveltekit/client/SignIn.svelte';
+	import { safeRedirectPath } from '$lib/auth-redirect';
 
 	const redirectUrl = $derived(
-		page.url.searchParams.get('redirect_url') ?? page.url.searchParams.get('redirectUrl') ?? '/runs'
+		safeRedirectPath(
+			page.url.searchParams.get('redirect_url') ?? page.url.searchParams.get('redirectUrl')
+		)
 	);
 </script>
 
@@ -17,6 +23,11 @@
 			</p>
 			<h1 class="mt-2 text-2xl font-semibold text-foreground">Sign in to FlightLog</h1>
 		</div>
-		<SignIn {redirectUrl} signUpUrl="/sign-up" />
+		<ClerkLoading>
+			<AuthWidgetLoading />
+		</ClerkLoading>
+		<ClerkLoaded>
+			<SignIn {redirectUrl} signUpUrl="/sign-up" />
+		</ClerkLoaded>
 	</section>
 </main>
