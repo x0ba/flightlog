@@ -1,7 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 
-const UNRESERVED =
-	'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+const UNRESERVED = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
 
 export function generateCodeVerifier(length = 64) {
 	if (length < 43 || length > 128) {

@@ -6,10 +6,7 @@ import {
 	OAuthAuthorizationError,
 	readOpenAIOAuthConfig
 } from '$lib/server/openai-oauth';
-import {
-	deleteConnectState,
-	readConnectState
-} from '$lib/server/openai-oauth/connect-state';
+import { deleteConnectState, readConnectState } from '$lib/server/openai-oauth/connect-state';
 import { emailFromIdToken, sessionFromTokenResponse } from '$lib/server/openai-oauth/session';
 import { OAUTH_STATE_COOKIE } from '../connect/+server';
 

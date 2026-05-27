@@ -195,8 +195,7 @@ function oauthKeyPreview(accountEmail: string | undefined, apiKey: string) {
 	if (accountEmail) {
 		const [local, domain] = accountEmail.split('@');
 		if (!domain) return accountEmail;
-		const maskedLocal =
-			local.length <= 2 ? `${local[0] ?? ''}•` : `${local.slice(0, 2)}•••`;
+		const maskedLocal = local.length <= 2 ? `${local[0] ?? ''}•` : `${local.slice(0, 2)}•••`;
 		return `${maskedLocal}@${domain}`;
 	}
 	return previewKey(apiKey);
