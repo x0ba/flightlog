@@ -217,6 +217,7 @@
 			};
 			deviceAuth = payload;
 			deviceModalOpen = true;
+			clearChatgptDeviceUrlParam();
 			scheduleDevicePoll();
 		} catch {
 			chatgptConnectError = 'Could not start device sign-in.';
@@ -233,6 +234,23 @@
 		}, deviceAuth.pollIntervalMs);
 	}
 
+	async function readDevicePollError(response: Response) {
+		const text = await response.text();
+		try {
+			const body = JSON.parse(text) as { message?: string };
+			return body.message ?? text;
+		} catch {
+			return text;
+		}
+	}
+
+	function clearChatgptDeviceUrlParam() {
+		const url = new URL(page.url);
+		if (!url.searchParams.has('chatgpt')) return;
+		url.searchParams.delete('chatgpt');
+		void goto(url, { replaceState: true, keepFocus: true, noScroll: true });
+	}
+
 	async function pollDeviceStatus() {
 		if (!deviceAuth) return;
 		try {
@@ -240,7 +258,13 @@
 				`/api/auth/openai/device/status?deviceAuthId=${encodeURIComponent(deviceAuth.deviceAuthId)}`
 			);
 			if (!response.ok) {
-				chatgptConnectError = await response.text();
+				const message = await readDevicePollError(response);
+				if (response.status >= 500 || response.status === 429) {
+					chatgptConnectError = message;
+					scheduleDevicePoll();
+					return;
+				}
+				chatgptConnectError = message;
 				deviceModalOpen = false;
 				deviceAuth = null;
 				return;
@@ -261,9 +285,8 @@
 			deviceModalOpen = false;
 			deviceAuth = null;
 		} catch {
-			chatgptConnectError = 'Device sign-in failed.';
-			deviceModalOpen = false;
-			deviceAuth = null;
+			chatgptConnectError = 'Device sign-in failed. Retrying…';
+			scheduleDevicePoll();
 		}
 	}
 
