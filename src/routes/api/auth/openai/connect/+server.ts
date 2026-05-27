@@ -15,9 +15,8 @@ export async function GET(event) {
 	const config = readOpenAIOAuthConfig(event.url.origin);
 
 	if (shouldUseDeviceAuth(config)) {
-		throw error(400, {
-			message: 'Device auth required. Start via POST /api/auth/openai/device/start.'
-		});
+		const params = new URLSearchParams({ keys: 'open', chatgpt: 'device' });
+		throw redirect(303, `/runs?${params.toString()}`);
 	}
 	if (!config.redirectUri) {
 		throw error(500, { message: 'OPENAI_OAUTH_REDIRECT_URI is not configured.' });

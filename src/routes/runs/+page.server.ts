@@ -1,5 +1,6 @@
 import { requireUserId } from '$lib/server/auth';
 import { getRunDashboardMetricsForUser, listRuns } from '$lib/server/runs';
+import { readOpenAIOAuthConfig, shouldUseDeviceAuth } from '$lib/server/openai-oauth';
 import {
 	defaultTools,
 	listProviderCredentials,
@@ -18,12 +19,14 @@ export async function load(event) {
 		getRunDashboardMetricsForUser(userId)
 	]);
 	const credentials = await listProviderCredentials(userId);
+	const openaiOAuthConfig = readOpenAIOAuthConfig(url.origin);
 	return {
 		...result,
 		metrics,
 		filters: { status, q: q ?? '' },
 		credentials,
 		modelCatalog,
-		tools: defaultTools
+		tools: defaultTools,
+		chatgptOAuthUseDeviceFlow: shouldUseDeviceAuth(openaiOAuthConfig)
 	};
 }

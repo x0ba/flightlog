@@ -51,11 +51,12 @@ FLIGHTLOG_AGENT_APPROVAL_TIMEOUT_SECONDS=300
 Optional ChatGPT subscription OAuth (dashboard agent runs):
 
 ```sh
-# Defaults to the public Codex CLI client in development only.
+# Defaults to the public Codex CLI client.
 OPENAI_OAUTH_CLIENT_ID=
-# e.g. https://your-app.example.com/api/auth/openai/callback
+# Set only when registered with OpenAI; enables browser redirect sign-in.
+# Without this, ChatGPT sign-in uses the device-code flow (Codex public client).
 OPENAI_OAUTH_REDIRECT_URI=
-# auto | on | off — device code when redirect is unavailable
+# auto | on | off — auto uses device flow unless OPENAI_OAUTH_REDIRECT_URI is set
 OPENAI_OAUTH_DEVICE_AUTH=auto
 ```
 
