@@ -23,9 +23,7 @@ describe('shouldUseDeviceAuth', () => {
 	});
 
 	it('honors explicit device auth mode overrides', () => {
-		expect(shouldUseDeviceAuth(config({ deviceAuth: 'on', redirectUriFromEnv: true }))).toBe(
-			true
-		);
+		expect(shouldUseDeviceAuth(config({ deviceAuth: 'on', redirectUriFromEnv: true }))).toBe(true);
 		expect(shouldUseDeviceAuth(config({ deviceAuth: 'off', redirectUriFromEnv: false }))).toBe(
 			false
 		);

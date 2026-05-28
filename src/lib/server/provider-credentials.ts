@@ -36,7 +36,10 @@ export async function listProviderCredentials(ownerUserId: string) {
 	return rows.map(redactCredential);
 }
 
-export async function getRedactedProviderCredential(ownerUserId: string, publicCredentialId: string) {
+export async function getRedactedProviderCredential(
+	ownerUserId: string,
+	publicCredentialId: string
+) {
 	const [row] = await db
 		.select()
 		.from(providerCredentials)
