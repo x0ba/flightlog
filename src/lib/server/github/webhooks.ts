@@ -1,10 +1,8 @@
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { regressionRuns } from '$lib/server/db/schema';
-import {
-	createRegressionRunForRepository,
-	scheduleRegressionRun
-} from '$lib/server/regression/runs';
+import { createRegressionRunForRepository } from '$lib/server/regression/runs';
+import { scheduleRegressionRun } from '$lib/server/regression/executor';
 import { deleteGithubInstallation, upsertGithubInstallation } from '$lib/server/regression/suites';
 import { getGithubApp, isGithubAppConfigured } from './app';
 import { CHECK_NAME, createRegressionCheckRun } from './checks';

@@ -1,6 +1,7 @@
 import { requireUserId } from '$lib/server/auth';
 import { notFound, ok, parseJson } from '$lib/server/http';
-import { createRegressionRun, scheduleRegressionRun } from '$lib/server/regression/runs';
+import { createRegressionRun } from '$lib/server/regression/runs';
+import { scheduleRegressionRun } from '$lib/server/regression/executor';
 import { findRegressionSuiteForUser } from '$lib/server/regression/suites';
 import { startRegressionRunSchema } from '$lib/server/validation';
 
