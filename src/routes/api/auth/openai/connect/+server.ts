@@ -15,7 +15,7 @@ export async function GET(event) {
 	const config = readOpenAIOAuthConfig(event.url.origin);
 
 	if (shouldUseDeviceAuth(config)) {
-		const params = new URLSearchParams({ keys: 'open', chatgpt: 'device' });
+		const params = new URLSearchParams({ keys: 'open', chatgpt: 'device', label });
 		throw redirect(303, `/runs?${params.toString()}`);
 	}
 	if (!config.redirectUri) {

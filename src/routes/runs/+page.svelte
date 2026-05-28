@@ -47,6 +47,7 @@
 	let chatgptConnectError = $state('');
 	let connectNotice = $state('');
 	let deviceModalOpen = $state(false);
+	let deviceConnectHandledFromUrl = $state(false);
 	let deviceAuth = $state<{
 		deviceAuthId: string;
 		userCode: string;
@@ -319,7 +320,14 @@
 		if (params.get('keys') === 'open') keysOpen = true;
 		if (params.get('chatgpt') === 'device' && data.chatgptOAuthUseDeviceFlow) {
 			addProviderTab = 'chatgpt';
-			if (!deviceAuth && !connectingChatGpt) void startDeviceConnect();
+			const label = params.get('label')?.trim();
+			if (label) credentialLabel = label;
+			if (!deviceConnectHandledFromUrl) {
+				deviceConnectHandledFromUrl = true;
+				void startDeviceConnect();
+			}
+		} else {
+			deviceConnectHandledFromUrl = false;
 		}
 		if (params.get('connected') === '1') {
 			const connectedId = params.get('credentialId');
@@ -864,12 +872,7 @@
 							and completes here with a one-time code.
 						</p>
 						<Input class="text-xs" bind:value={credentialLabel} placeholder="Label (optional)" />
-						<Button
-							type="button"
-							class="h-9"
-							disabled={connectingChatGpt}
-							onclick={connectChatGpt}
-						>
+						<Button type="button" class="h-9" disabled={connectingChatGpt} onclick={connectChatGpt}>
 							{connectingChatGpt ? 'Connecting…' : 'Connect with ChatGPT'}
 						</Button>
 						{#if !data.chatgptOAuthUseDeviceFlow}
