@@ -159,6 +159,15 @@ export type DeviceCodePollResponse = {
 	error_description?: string;
 };
 
+/** Matches OpenAI Codex CLI: user has not finished authorizing yet. */
+export function isDevicePollPendingHttpStatus(status: number) {
+	return status === 403 || status === 404 || status === 428;
+}
+
+function isDevicePollPendingOAuthError(code: string) {
+	return code === 'authorization_pending' || code === 'slow_down';
+}
+
 export async function pollDeviceCodeToken(input: { deviceAuthId: string; userCode: string }) {
 	const response = await fetch(DEVICE_TOKEN_URL, {
 		method: 'POST',
@@ -168,15 +177,21 @@ export async function pollDeviceCodeToken(input: { deviceAuthId: string; userCod
 			user_code: input.userCode
 		})
 	});
-	if (response.status === 404 || response.status === 428) {
+	if (isDevicePollPendingHttpStatus(response.status)) {
 		return { pending: true as const };
 	}
 	if (!response.ok) {
 		const oauthError = await readOAuthError(response);
+		if (isDevicePollPendingOAuthError(oauthError.code)) {
+			return { pending: true as const };
+		}
 		throw new OAuthAuthorizationError(oauthError.code, oauthError.description);
 	}
 	const payload = (await response.json()) as DeviceCodePollResponse;
 	if (payload.error) {
+		if (isDevicePollPendingOAuthError(payload.error)) {
+			return { pending: true as const };
+		}
 		throw new OAuthAuthorizationError(payload.error, payload.error_description);
 	}
 	if (!payload.authorization_code || !payload.code_verifier) {
