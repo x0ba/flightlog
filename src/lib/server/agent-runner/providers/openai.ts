@@ -56,7 +56,7 @@ export const openaiProvider: ModelProviderAdapter = {
 			payload = (await postOpenAIResponses({ transport, body })) as OpenAIResponsePayload;
 		} catch (cause) {
 			if (cause instanceof Error) throw cause;
-			throw new Error(formatOpenAIResponsesError(500, String(cause)));
+			throw new Error(formatOpenAIResponsesError(500, String(cause)), { cause });
 		}
 
 		const output = payload.output ?? [];
