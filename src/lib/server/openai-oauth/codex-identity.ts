@@ -17,7 +17,7 @@ function decodeJwtPayload(accessToken: string): CodexJwtPayload | undefined {
 }
 
 export function chatgptAccountIdFromAccessToken(accessToken: string) {
-	const accountId = decodeJwtPayload(accessToken)?.['https://api.openai.com/auth']
-		?.chatgpt_account_id;
+	const accountId =
+		decodeJwtPayload(accessToken)?.['https://api.openai.com/auth']?.chatgpt_account_id;
 	return typeof accountId === 'string' && accountId.trim() ? accountId.trim() : undefined;
 }

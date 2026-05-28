@@ -1,5 +1,4 @@
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
 	assembleCodexResponse,
@@ -55,12 +54,16 @@ describe('toCodexToolName', () => {
 	});
 
 	it('builds a reverse map for tool call handling', () => {
-		const aliases = codexToolNameAliases([
-			{ name: 'calculator.evaluate' },
-			{ name: 'time.now' }
-		]);
+		const aliases = codexToolNameAliases([{ name: 'calculator.evaluate' }, { name: 'time.now' }]);
 		expect(aliases.get('calculator_evaluate')).toBe('calculator.evaluate');
 		expect(aliases.get('time_now')).toBe('time.now');
+	});
+
+	it('rejects empty and ambiguous Codex tool aliases', () => {
+		expect(() => toCodexToolName('')).toThrow('must not be empty');
+		expect(() => codexToolNameAliases([{ name: 'web.fetch' }, { name: 'web:fetch' }])).toThrow(
+			'both map to the Codex name "web_fetch"'
+		);
 	});
 });
 
@@ -99,6 +102,20 @@ describe('prepareCodexResponsesPayload', () => {
 				tools: [{ type: 'function', name: 'bad.tool', description: 'x', parameters: {} }]
 			})
 		).toThrow('invalid');
+	});
+
+	it('omits platform-only Responses fields rejected by the Codex backend', () => {
+		const payload = prepareCodexResponsesPayload({
+			model: 'gpt-5.3-codex',
+			instructions: 'Be concise.',
+			input: [],
+			metadata: { traceId: 'trace_1' },
+			reasoning: { effort: 'medium' },
+			truncation: 'auto'
+		});
+		expect(payload).not.toHaveProperty('metadata');
+		expect(payload).not.toHaveProperty('reasoning');
+		expect(payload).not.toHaveProperty('truncation');
 	});
 });
 
@@ -144,5 +161,11 @@ describe('assembleCodexResponse', () => {
 				}
 			])
 		).toThrow('Rate limit reached');
+	});
+
+	it('rejects streams that end without a completed response', () => {
+		expect(() =>
+			assembleCodexResponse([{ type: 'response.output_text.delta', delta: 'partial' }])
+		).toThrow('without a response.completed event');
 	});
 });

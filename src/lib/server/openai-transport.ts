@@ -11,17 +11,23 @@ export const CODEX_TOOL_NAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
 const CODEX_ORIGINATOR = 'codex_cli_rs';
 
 export function toCodexToolName(name: string) {
-	const sanitized = name.replace(/[^a-zA-Z0-9_-]/g, '_');
-	if (!CODEX_TOOL_NAME_PATTERN.test(sanitized)) {
-		throw new Error(`Tool name "${name}" cannot be sent to the ChatGPT backend.`);
+	if (!name) {
+		throw new Error('Tool name must not be empty.');
 	}
-	return sanitized;
+	return name.replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
 export function codexToolNameAliases(tools: { name: string }[]) {
 	const toCanonical = new Map<string, string>();
 	for (const tool of tools) {
-		toCanonical.set(toCodexToolName(tool.name), tool.name);
+		const codexName = toCodexToolName(tool.name);
+		const existing = toCanonical.get(codexName);
+		if (existing) {
+			throw new Error(
+				`Tool names "${existing}" and "${tool.name}" both map to the Codex name "${codexName}". Rename one to avoid ambiguous tool call routing.`
+			);
+		}
+		toCanonical.set(codexName, tool.name);
 	}
 	return toCanonical;
 }
@@ -171,9 +177,8 @@ export function prepareCodexResponsesPayload(body: Record<string, unknown>) {
 			);
 		}
 	}
-	const toolChoice = tools.length ? body.tool_choice ?? 'auto' : 'none';
+	const toolChoice = tools.length ? (body.tool_choice ?? 'auto') : 'none';
 	return {
-		...body,
 		model: body.model.trim(),
 		instructions: body.instructions,
 		input: body.input,
@@ -328,18 +333,21 @@ export function assembleCodexResponse(events: CodexSseEvent[]) {
 		}
 	}
 
+	if (!completed) {
+		throw new Error('ChatGPT backend SSE stream ended without a response.completed event.');
+	}
 	const assembledOutput =
-		(isRecord(completed?.output) && Array.isArray(completed.output)
+		(Array.isArray(completed.output)
 			? (completed.output as Record<string, unknown>[])
 			: undefined) ?? output;
 	const outputText =
-		(typeof completed?.output_text === 'string' && completed.output_text) ||
+		(typeof completed.output_text === 'string' && completed.output_text) ||
 		textParts.join('') ||
 		textFromOutputItems(assembledOutput);
 
 	return {
-		...(completed ?? {}),
-		id: completed?.id,
+		...completed,
+		id: completed.id,
 		output: assembledOutput,
 		output_text: outputText
 	};
@@ -359,7 +367,11 @@ function responseFromCompletedEvent(event: CodexSseEvent) {
 
 function codexStreamErrorMessage(event: CodexSseEvent) {
 	const response = isRecord(event.response) ? event.response : undefined;
-	const error = isRecord(event.error) ? event.error : isRecord(response?.error) ? response.error : undefined;
+	const error = isRecord(event.error)
+		? event.error
+		: isRecord(response?.error)
+			? response.error
+			: undefined;
 	if (typeof error?.message === 'string' && error.message.trim()) {
 		return error.message.trim();
 	}
