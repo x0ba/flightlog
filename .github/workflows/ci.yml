@@ -27,6 +27,8 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/flightlog
       FLIGHTLOG_KEYS_SECRET: ci-test-keys-secret
+      PUBLIC_POSTHOG_PROJECT_TOKEN: ci-test-posthog-token
+      PUBLIC_POSTHOG_HOST: https://us.i.posthog.com
 
     steps:
       - uses: actions/checkout@v4
