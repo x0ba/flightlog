@@ -18,7 +18,7 @@ const config = {
 
 		experimental: {
 			tracing: {
-				server: true
+				server: process.env.VERCEL !== '1'
 			},
 
 			instrumentation: {

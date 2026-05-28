@@ -3,6 +3,11 @@ import { requireRunForUser } from '$lib/server/http';
 import { getRunSnapshot, maybeStartAgentRun } from '$lib/server/agent-runner/service';
 import { encodeSse, subscribeToRun } from '$lib/server/agent-runner/stream';
 
+/** @type {import('@sveltejs/adapter-vercel').Config} */
+export const config = {
+	maxDuration: 300
+};
+
 export async function GET(event) {
 	const userId = requireUserId(event);
 	const { params, request } = event;
