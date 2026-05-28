@@ -48,14 +48,20 @@ FLIGHTLOG_AGENT_MAX_STEPS=20
 FLIGHTLOG_AGENT_APPROVAL_TIMEOUT_SECONDS=300
 ```
 
-Optional ChatGPT subscription OAuth (dashboard agent runs):
+Optional ChatGPT subscription OAuth (dashboard agent runs). ChatGPT credentials call OpenAI’s
+Codex Responses backend (`chatgpt.com/backend-api/codex`), not `api.openai.com`, because
+subscription OAuth tokens do not include the `api.responses.write` scope required on the platform API.
+Reconnect ChatGPT under **Runs → Keys** after upgrading if runs still fail with a scope error.
+ChatGPT sign-in supports **tool-agent** runs with Codex models (`gpt-5.3-codex`, etc.); **browser**
+runs still require a platform API key for computer-use.
 
 ```sh
-# Defaults to the public Codex CLI client in development only.
+# Defaults to the public Codex CLI client.
 OPENAI_OAUTH_CLIENT_ID=
-# e.g. https://your-app.example.com/api/auth/openai/callback
+# Set only when registered with OpenAI; enables browser redirect sign-in.
+# Without this, ChatGPT sign-in uses the device-code flow (Codex public client).
 OPENAI_OAUTH_REDIRECT_URI=
-# auto | on | off — device code when redirect is unavailable
+# auto | on | off — auto uses device flow unless OPENAI_OAUTH_REDIRECT_URI is set
 OPENAI_OAUTH_DEVICE_AUTH=auto
 ```
 
@@ -73,7 +79,11 @@ dashboard stores only encrypted provider keys and returns masked previews to the
 required for dashboard access and API ingestion. Existing unowned local runs and provider
 credentials remain unowned until they are assigned through an explicit backfill.
 
-If `OPENAI_API_KEY` is missing, evaluations still run with deterministic rule checks. Browser-mode
+LLM evaluations use the same OpenAI credential as the run when one was selected (platform API key
+or ChatGPT subscription via Codex OAuth). You can pass `credentialId` on `POST /api/runs/:id/evaluate`
+to override. If no credential is available, evaluations still complete with deterministic rule
+checks. `OPENAI_API_KEY` remains an optional server-side fallback when no user credential applies.
+Browser-mode
 UI agent runs use a saved OpenAI credential (ChatGPT subscription or platform API key) plus a
 Browserbase credential. Tool-agent dashboard runs use the encrypted OpenAI or Anthropic credential
 selected in the UI.
