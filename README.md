@@ -58,10 +58,9 @@ runs still require a platform API key for computer-use.
 ```sh
 # Defaults to the public Codex CLI client.
 OPENAI_OAUTH_CLIENT_ID=
-# Set only when registered with OpenAI; enables browser redirect sign-in.
-# Without this, ChatGPT sign-in uses the device-code flow (Codex public client).
+# Override the auto-constructed callback URL ({origin}/api/auth/openai/callback).
 OPENAI_OAUTH_REDIRECT_URI=
-# auto | on | off — auto uses device flow unless OPENAI_OAUTH_REDIRECT_URI is set
+# auto | on | off — set to `on` for device-code flow; `auto` uses browser redirect when a callback URL exists
 OPENAI_OAUTH_DEVICE_AUTH=auto
 ```
 
