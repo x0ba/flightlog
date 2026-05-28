@@ -8,11 +8,22 @@ const config = {
 	},
 	kit: {
 		adapter: adapter(),
+
 		typescript: {
 			config: (config) => ({
 				...config,
 				include: [...config.include, '../drizzle.config.ts']
 			})
+		},
+
+		experimental: {
+			tracing: {
+				server: true
+			},
+
+			instrumentation: {
+				server: true
+			}
 		}
 	}
 };
