@@ -7,6 +7,7 @@
 	import * as Sheet from '$lib/components/ui/sheet';
 	import { Play, Plus } from '@lucide/svelte';
 	import { goto } from '$app/navigation';
+	import posthog from 'posthog-js';
 	import { resolve } from '$app/paths';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import Section from '$lib/components/section.svelte';
@@ -32,7 +33,11 @@
 		try {
 			const response = await fetch(`/api/regression/suites/${data.suite.publicId}`, {
 				method: 'POST',
-				headers: { 'content-type': 'application/json' },
+				headers: {
+					'content-type': 'application/json',
+					'x-posthog-distinct-id': posthog.get_distinct_id() ?? '',
+					'x-posthog-session-id': posthog.get_session_id() ?? ''
+				},
 				body: JSON.stringify({
 					name: caseName.trim(),
 					goal: goal.trim(),
@@ -63,7 +68,11 @@
 		try {
 			const response = await fetch(`/api/regression/suites/${data.suite.publicId}/runs`, {
 				method: 'POST',
-				headers: { 'content-type': 'application/json' },
+				headers: {
+					'content-type': 'application/json',
+					'x-posthog-distinct-id': posthog.get_distinct_id() ?? '',
+					'x-posthog-session-id': posthog.get_session_id() ?? ''
+				},
 				body: JSON.stringify({})
 			});
 			if (!response.ok) throw new Error(await response.text());
