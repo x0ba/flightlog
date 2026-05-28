@@ -216,6 +216,9 @@ export async function postOpenAIResponses(input: {
 		if (!response.ok) {
 			throw new Error(formatOpenAIResponsesError(response.status, text));
 		}
+		if (looksLikeSseBody(text)) {
+			return collectCodexResponseFromSseText(text);
+		}
 		return JSON.parse(text) as unknown;
 	}
 

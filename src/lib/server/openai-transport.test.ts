@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	assembleCodexResponse,
 	codexToolNameAliases,
@@ -7,6 +7,7 @@ import {
 	formatOpenAIResponsesError,
 	looksLikeSseBody,
 	parseSseTextEvents,
+	postOpenAIResponses,
 	prepareCodexResponsesPayload,
 	resolveModelForTransport,
 	openaiTransportForChatGptOAuth,
@@ -17,6 +18,12 @@ const codexStreamFixture = readFileSync(
 	new URL('./fixtures/codex-responses-stream.sse', import.meta.url),
 	'utf8'
 );
+
+const originalFetch = globalThis.fetch;
+
+afterEach(() => {
+	globalThis.fetch = originalFetch;
+});
 
 describe('resolveModelForTransport', () => {
 	it('maps platform models to a Codex default for ChatGPT OAuth', () => {
@@ -135,6 +142,27 @@ describe('parseSseTextEvents', () => {
 		const response = collectCodexResponseFromSseText(codexStreamFixture);
 		expect(response.id).toBe('resp_fixture_1');
 		expect(response.output_text).toBe('Hi');
+	});
+});
+
+describe('postOpenAIResponses', () => {
+	it('collects platform SSE responses when stream is enabled', async () => {
+		globalThis.fetch = vi.fn(async () => new Response(codexStreamFixture, { status: 200 }));
+
+		const response = await postOpenAIResponses({
+			transport: { kind: 'platform', apiKey: 'sk-test' },
+			body: {
+				model: 'gpt-5.3',
+				instructions: 'Be concise.',
+				input: [],
+				stream: true
+			}
+		});
+
+		expect(response).toMatchObject({
+			id: 'resp_fixture_1',
+			output_text: 'Hi'
+		});
 	});
 });
 
