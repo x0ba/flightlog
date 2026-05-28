@@ -12,7 +12,14 @@ import {
 
 type ProviderCredentialRow = typeof providerCredentials.$inferSelect;
 
-export async function resolveOpenAICredential(ownerUserId: string, row: ProviderCredentialRow) {
+export type ResolvedOpenAICredential =
+	| { row: ProviderCredentialRow; apiKey: string }
+	| { row: ProviderCredentialRow; apiKey: string; accessToken: string };
+
+export async function resolveOpenAICredential(
+	ownerUserId: string,
+	row: ProviderCredentialRow
+): Promise<ResolvedOpenAICredential | undefined> {
 	if (!row.isEnabled || row.ownerUserId !== ownerUserId || row.provider !== 'openai') {
 		return undefined;
 	}
@@ -39,7 +46,7 @@ export async function resolveOpenAICredential(ownerUserId: string, row: Provider
 				console.error('Failed to persist OAuth session after refresh', cause);
 			}
 		}
-		return { row, apiKey: refreshed.apiKey };
+		return { row, apiKey: refreshed.apiKey, accessToken: refreshed.accessToken };
 	} catch (cause) {
 		if (cause instanceof OAuthRefreshFailedError) {
 			try {
