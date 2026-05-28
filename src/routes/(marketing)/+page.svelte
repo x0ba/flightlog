@@ -91,7 +91,7 @@ jobs:
 				<a href="https://github.com/x0ba/flightlog">GitHub</a>
 			</nav>
 
-			<a href={resolve('/runs')} class="nav-cta">
+			<a href={resolve('/runs')} rel="external" class="nav-cta">
 				Dashboard
 				<ArrowUpRight class="size-3.5" />
 			</a>
@@ -112,7 +112,7 @@ jobs:
 				requests on regression suites — surfaced directly as GitHub Check Runs.
 			</p>
 			<div class="cta-row">
-				<a href={resolve('/runs')} class="btn-primary">
+				<a href={resolve('/runs')} rel="external" class="btn-primary">
 					Open dashboard
 					<ArrowUpRight class="size-4" />
 				</a>
@@ -176,7 +176,7 @@ jobs:
 		<div>
 			<a href="https://github.com/x0ba/flightlog">GitHub</a>
 			<a href="https://github.com/x0ba/flightlog/blob/main/README.md">Docs</a>
-			<a href={resolve('/runs')}>Dashboard</a>
+			<a href={resolve('/runs')} rel="external">Dashboard</a>
 		</div>
 	</footer>
 </div>
