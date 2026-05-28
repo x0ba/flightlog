@@ -60,6 +60,7 @@
 	--status-success: oklch(0.65 0.15 160);
 	--status-failed: oklch(0.6 0.2 25);
 	--status-cancelled: oklch(0.45 0.01 285);
+	--color-dot-on: var(--primary);
 }
 
 /* dark mode aliases (same values, app is dark-only) */
@@ -136,6 +137,7 @@
 	--color-status-success: var(--status-success);
 	--color-status-failed: var(--status-failed);
 	--color-status-cancelled: var(--status-cancelled);
+	--color-dot-on: var(--color-primary);
 	--radius-sm: calc(var(--radius) * 0.6);
 	--radius-md: calc(var(--radius) * 0.8);
 	--radius-lg: var(--radius);

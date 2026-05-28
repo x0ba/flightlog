@@ -4,21 +4,22 @@
 	import UserButton from 'clerk-sveltekit/client/UserButton.svelte';
 	import ClerkLoaded from 'clerk-sveltekit/client/ClerkLoaded.svelte';
 	import ClerkLoading from 'clerk-sveltekit/client/ClerkLoading.svelte';
+	import DotMatrixLoader from '$lib/components/dotmatrix-loader.svelte';
 	import { resolve } from '$app/paths';
 
 	let { userId = null }: { userId?: string | null } = $props();
 
-	const loadingSkeletonClass = $derived(
-		userId
-			? 'h-8 w-8 animate-pulse rounded-md bg-muted ring-1 ring-border'
-			: 'h-8 w-16 animate-pulse rounded-md bg-muted'
-	);
 	const loadingLabel = $derived(userId ? 'Loading account' : 'Loading sign in status');
 </script>
 
 <div class="flex shrink-0 items-center">
 	<ClerkLoading>
-		<div class={loadingSkeletonClass} aria-hidden="true"></div>
+		<div
+			class="flex items-center justify-center {userId ? 'size-8' : 'h-8 w-16'}"
+			aria-hidden="true"
+		>
+			<DotMatrixLoader variant="inline" ariaLabel={loadingLabel} />
+		</div>
 		<span class="sr-only">{loadingLabel}</span>
 	</ClerkLoading>
 	<ClerkLoaded>
