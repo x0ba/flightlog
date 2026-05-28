@@ -9,6 +9,7 @@ import {
 	completeDeviceCodeLogin,
 	DEVICE_CODE_MAX_WAIT_MS,
 	OAuthAuthorizationError,
+	OAuthTokenExchangeFailedError,
 	pollDeviceCodeToken,
 	readOpenAIOAuthConfig
 } from '$lib/server/openai-oauth';
@@ -104,7 +105,10 @@ export async function GET(event) {
 			credential
 		});
 	} catch (cause) {
-		if (cause instanceof OAuthAuthorizationError) {
+		if (
+			cause instanceof OAuthAuthorizationError ||
+			cause instanceof OAuthTokenExchangeFailedError
+		) {
 			throw error(400, { message: cause.message });
 		}
 		throw cause;

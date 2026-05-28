@@ -1,5 +1,5 @@
 import { DEFAULT_EXPIRES_IN_SECONDS, REFRESH_MARGIN_SECONDS } from './constants';
-import { exchangeIdTokenForApiKey, refreshOAuthTokens, type TokenEndpointResponse } from './client';
+import { refreshOAuthTokens, resolveOAuthApiKey, type TokenEndpointResponse } from './client';
 
 export type OpenAIOAuthSession = {
 	clientId: string;
@@ -75,10 +75,7 @@ export async function ensureValidApiKey(session: OpenAIOAuthSession) {
 	});
 	const expiresInMs = (tokens.expires_in ?? DEFAULT_EXPIRES_IN_SECONDS) * 1000;
 	const now = Date.now();
-	const apiKey = await exchangeIdTokenForApiKey({
-		clientId: session.clientId,
-		idToken: tokens.id_token
-	});
+	const apiKey = await resolveOAuthApiKey(session.clientId, tokens);
 
 	return {
 		...session,

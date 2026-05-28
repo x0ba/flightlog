@@ -64,7 +64,7 @@ describe('openai-oauth session', () => {
 			id_token: 'id-new',
 			expires_in: 3600
 		});
-		vi.spyOn(client, 'exchangeIdTokenForApiKey').mockResolvedValue('sk-new');
+		vi.spyOn(client, 'resolveOAuthApiKey').mockResolvedValue('sk-new');
 
 		const result = await ensureValidApiKey(session);
 		expect(result.apiKey).toBe('sk-new');

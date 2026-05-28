@@ -1,8 +1,79 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DEVICE_TOKEN_URL } from './constants';
-import { isDevicePollPendingHttpStatus, pollDeviceCodeToken } from './client';
+import { OAUTH_TOKEN_URL, DEVICE_TOKEN_URL } from './constants';
+import {
+	apiKeyFromExchangeResponse,
+	exchangeIdTokenForApiKey,
+	isDevicePollPendingHttpStatus,
+	pollDeviceCodeToken,
+	resolveOAuthApiKey
+} from './client';
 
 const originalFetch = globalThis.fetch;
+
+describe('apiKeyFromExchangeResponse', () => {
+	it('prefers access_token like Codex CLI', () => {
+		expect(
+			apiKeyFromExchangeResponse({
+				access_token: 'oauth-access-key',
+				openai_api_key: 'legacy-field'
+			})
+		).toBe('oauth-access-key');
+	});
+
+	it('falls back to openai_api_key', () => {
+		expect(apiKeyFromExchangeResponse({ openai_api_key: 'sk-legacy' })).toBe('sk-legacy');
+	});
+});
+
+describe('exchangeIdTokenForApiKey', () => {
+	afterEach(() => {
+		globalThis.fetch = originalFetch;
+	});
+
+	it('reads access_token from token exchange response', async () => {
+		globalThis.fetch = vi.fn().mockResolvedValue(
+			new Response(JSON.stringify({ access_token: 'exchanged-key', expires_in: 3600 }), {
+				status: 200,
+				headers: { 'content-type': 'application/json' }
+			})
+		);
+
+		const apiKey = await exchangeIdTokenForApiKey({
+			clientId: 'app_EMoamEEZ73f0CkXaXp7hrann',
+			idToken: 'id-token'
+		});
+
+		expect(apiKey).toBe('exchanged-key');
+		expect(globalThis.fetch).toHaveBeenCalledWith(
+			OAUTH_TOKEN_URL,
+			expect.objectContaining({ method: 'POST' })
+		);
+	});
+});
+
+describe('resolveOAuthApiKey', () => {
+	afterEach(() => {
+		globalThis.fetch = originalFetch;
+		vi.restoreAllMocks();
+	});
+
+	it('uses OAuth access_token when id token exchange fails', async () => {
+		globalThis.fetch = vi.fn().mockResolvedValue(
+			new Response(JSON.stringify({ error: { message: 'denied', type: 'invalid_request' } }), {
+				status: 400,
+				headers: { 'content-type': 'application/json' }
+			})
+		);
+
+		const apiKey = await resolveOAuthApiKey('app_EMoamEEZ73f0CkXaXp7hrann', {
+			access_token: 'fallback-access',
+			refresh_token: 'refresh',
+			id_token: 'id-token'
+		});
+
+		expect(apiKey).toBe('fallback-access');
+	});
+});
 
 describe('isDevicePollPendingHttpStatus', () => {
 	it('treats Codex pending statuses as not ready', () => {
