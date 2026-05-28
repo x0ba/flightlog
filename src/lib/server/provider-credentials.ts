@@ -7,6 +7,7 @@ import {
 	serializeSession,
 	type OpenAIOAuthSession
 } from '$lib/server/openai-oauth/session';
+import { openaiTransportForChatGptOAuth } from '$lib/server/openai-transport';
 import { publicId } from '$lib/server/public-id';
 import type {
 	createProviderCredentialSchema,
@@ -16,6 +17,8 @@ import type { z } from 'zod';
 
 export const modelCatalog = {
 	openai: ['gpt-4.1', 'gpt-4.1-mini', 'gpt-4o', 'gpt-4o-mini', 'computer-use-preview'],
+	/** Models that work with ChatGPT subscription OAuth (Codex backend). */
+	openaiChatGpt: ['gpt-5.3-codex', 'gpt-5.4', 'gpt-5.4-mini'],
 	anthropic: ['claude-sonnet-4-5', 'claude-haiku-4-5', 'claude-opus-4-1']
 } as const;
 
@@ -31,6 +34,20 @@ export async function listProviderCredentials(ownerUserId: string) {
 		.from(providerCredentials)
 		.where(eq(providerCredentials.ownerUserId, ownerUserId));
 	return rows.map(redactCredential);
+}
+
+export async function getRedactedProviderCredential(ownerUserId: string, publicCredentialId: string) {
+	const [row] = await db
+		.select()
+		.from(providerCredentials)
+		.where(
+			and(
+				eq(providerCredentials.publicId, publicCredentialId),
+				eq(providerCredentials.ownerUserId, ownerUserId)
+			)
+		)
+		.limit(1);
+	return row ? redactCredential(row) : undefined;
 }
 
 export async function createProviderCredential(ownerUserId: string, input: CreateCredentialInput) {
@@ -153,10 +170,12 @@ export async function getProviderApiKey(
 	if (row.provider === 'openai' && row.authType === 'chatgpt_oauth') {
 		const { resolveOpenAICredential } = await import('$lib/server/openai-oauth/resolve');
 		const resolved = await resolveOpenAICredential(ownerUserId, row);
-		if (!resolved) return undefined;
+		if (!resolved || !('accessToken' in resolved)) return undefined;
 		return {
 			credential: redactCredential(resolved.row),
 			apiKey: resolved.apiKey,
+			accessToken: resolved.accessToken,
+			openaiTransport: openaiTransportForChatGptOAuth(resolved.accessToken),
 			projectId: resolved.row.browserbaseProjectId ?? undefined
 		};
 	}

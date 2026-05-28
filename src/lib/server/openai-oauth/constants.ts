@@ -6,7 +6,9 @@ export const DEVICE_VERIFICATION_URL = 'https://auth.openai.com/codex/device';
 export const DEVICE_TOKEN_EXCHANGE_REDIRECT_URI = 'https://auth.openai.com/deviceauth/callback';
 
 export const DEFAULT_CODEX_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
-export const OAUTH_SCOPE = 'openid profile email offline_access';
+/** Matches Codex CLI; ChatGPT runs use the Codex Responses backend, not api.openai.com. */
+export const OAUTH_SCOPE =
+	'openid profile email offline_access api.connectors.read api.connectors.invoke';
 
 export const TOKEN_EXCHANGE_GRANT = 'urn:ietf:params:oauth:grant-type:token-exchange';
 export const ID_TOKEN_TYPE = 'urn:ietf:params:oauth:token-type:id_token';
