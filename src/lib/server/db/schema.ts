@@ -159,6 +159,7 @@ export const oauthConnectStates = pgTable(
 		deviceAuthId: text('device_auth_id'),
 		userCode: text('user_code'),
 		pollIntervalMs: integer('poll_interval_ms'),
+		completedCredentialPublicId: text('completed_credential_public_id'),
 		expiresAt: timestamp('expires_at').notNull(),
 		createdAt: timestamp('created_at')
 			.notNull()

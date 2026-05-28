@@ -19,7 +19,11 @@ export async function POST(event) {
 	}
 
 	const deviceCodeDefaultPollSeconds = DEVICE_CODE_DEFAULT_POLL_MS / 1000;
-	const pollIntervalMs = (device.interval ?? deviceCodeDefaultPollSeconds) * 1000;
+	const intervalSeconds = Number(device.interval ?? deviceCodeDefaultPollSeconds);
+	const pollIntervalMs = Math.max(
+		(Number.isFinite(intervalSeconds) ? intervalSeconds : deviceCodeDefaultPollSeconds) * 1000,
+		1000
+	);
 	await createDeviceConnectState({
 		ownerUserId: userId,
 		label: input.label,
