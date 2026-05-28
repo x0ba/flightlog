@@ -48,7 +48,12 @@ FLIGHTLOG_AGENT_MAX_STEPS=20
 FLIGHTLOG_AGENT_APPROVAL_TIMEOUT_SECONDS=300
 ```
 
-Optional ChatGPT subscription OAuth (dashboard agent runs):
+Optional ChatGPT subscription OAuth (dashboard agent runs). ChatGPT credentials call OpenAI’s
+Codex Responses backend (`chatgpt.com/backend-api/codex`), not `api.openai.com`, because
+subscription OAuth tokens do not include the `api.responses.write` scope required on the platform API.
+Reconnect ChatGPT under **Runs → Keys** after upgrading if runs still fail with a scope error.
+ChatGPT sign-in supports **tool-agent** runs with Codex models (`gpt-5.3-codex`, etc.); **browser**
+runs still require a platform API key for computer-use.
 
 ```sh
 # Defaults to the public Codex CLI client.
@@ -74,8 +79,11 @@ dashboard stores only encrypted provider keys and returns masked previews to the
 required for dashboard access and API ingestion. Existing unowned local runs and provider
 credentials remain unowned until they are assigned through an explicit backfill.
 
-If `OPENAI_API_KEY` is missing, evaluations still run with deterministic rule checks. Browser-mode
-UI agent runs use a saved OpenAI credential (ChatGPT subscription or platform API key) plus a
+LLM evaluations call `api.openai.com` with `OPENAI_API_KEY` when configured. Without it,
+evaluations still complete using deterministic rule checks. `POST /api/runs/:id/evaluate` accepts
+optional `constraints` only.
+
+Browser-mode UI agent runs use a saved OpenAI credential (ChatGPT subscription or platform API key) plus a
 Browserbase credential. Tool-agent dashboard runs use the encrypted OpenAI or Anthropic credential
 selected in the UI.
 
