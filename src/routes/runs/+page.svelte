@@ -54,6 +54,7 @@
 		pollIntervalMs: number;
 	} | null>(null);
 	let devicePollTimer: ReturnType<typeof setTimeout> | undefined;
+	let devicePollInFlight = false;
 	const emptyCurl = `curl -X POST http://localhost:5173/api/runs \\
   -H 'content-type: application/json' \\
   -d '{"goal":"Find product pricing without buying anything","name":"Pricing check"}'`;
@@ -212,6 +213,7 @@
 			};
 			deviceAuth = payload;
 			deviceModalOpen = true;
+			clearChatgptDeviceUrlParam();
 			scheduleDevicePoll();
 		} catch {
 			chatgptConnectError = 'Could not start device sign-in.';
@@ -228,14 +230,58 @@
 		}, deviceAuth.pollIntervalMs);
 	}
 
+	async function readDevicePollError(response: Response) {
+		const text = await response.text();
+		try {
+			const body = JSON.parse(text) as { message?: string };
+			return body.message ?? text;
+		} catch {
+			return text;
+		}
+	}
+
+	function clearChatgptDeviceUrlParam() {
+		const url = new URL(page.url);
+		if (!url.searchParams.has('chatgpt')) return;
+		url.searchParams.delete('chatgpt');
+		void goto(url, { replaceState: true, keepFocus: true, noScroll: true });
+	}
+
+	async function recoverDeviceConnectAfterMissingSession() {
+		await invalidateAll();
+		const chatgptCredentials = data.credentials.filter(
+			(credential) => credential.authType === 'chatgpt_oauth'
+		);
+		const knownIds = new Set(credentials.map((credential) => credential.id));
+		const added = chatgptCredentials.find((credential) => !knownIds.has(credential.id));
+		if (!added) return false;
+		credentials = [...data.credentials];
+		credentialId = added.id;
+		connectNotice = `${added.label} connected.`;
+		deviceModalOpen = false;
+		deviceAuth = null;
+		chatgptConnectError = '';
+		return true;
+	}
+
 	async function pollDeviceStatus() {
-		if (!deviceAuth) return;
+		if (!deviceAuth || devicePollInFlight) return;
+		devicePollInFlight = true;
 		try {
 			const response = await fetch(
 				`/api/auth/openai/device/status?deviceAuthId=${encodeURIComponent(deviceAuth.deviceAuthId)}`
 			);
 			if (!response.ok) {
-				chatgptConnectError = await response.text();
+				const message = await readDevicePollError(response);
+				if (response.status === 404 && (await recoverDeviceConnectAfterMissingSession())) {
+					return;
+				}
+				if (response.status >= 500 || response.status === 429) {
+					chatgptConnectError = message;
+					scheduleDevicePoll();
+					return;
+				}
+				chatgptConnectError = message;
 				deviceModalOpen = false;
 				deviceAuth = null;
 				return;
@@ -256,9 +302,10 @@
 			deviceModalOpen = false;
 			deviceAuth = null;
 		} catch {
-			chatgptConnectError = 'Device sign-in failed.';
-			deviceModalOpen = false;
-			deviceAuth = null;
+			chatgptConnectError = 'Device sign-in failed. Retrying…';
+			scheduleDevicePoll();
+		} finally {
+			devicePollInFlight = false;
 		}
 	}
 
@@ -268,8 +315,17 @@
 		if (devicePollTimer) clearTimeout(devicePollTimer);
 	}
 
+	function selectedOpenAiCredential() {
+		return credentials.find((credential) => credential.id === credentialId);
+	}
+
+	function chatGptBlocksBrowserRun() {
+		return runMode === 'browser' && selectedOpenAiCredential()?.authType === 'chatgpt_oauth';
+	}
+
 	function canStartRun() {
 		if (runMode === 'browser') {
+			if (chatGptBlocksBrowserRun()) return false;
 			return Boolean(credentialId && browserbaseCredentialId);
 		}
 		return Boolean(credentialId);
@@ -282,6 +338,11 @@
 	}
 
 	function providerModels(): string[] {
+		if (runMode === 'tool_agent' && provider === 'openai') {
+			if (selectedOpenAiCredential()?.authType === 'chatgpt_oauth') {
+				return [...(data.modelCatalog.openaiChatGpt ?? [])];
+			}
+		}
 		return [...(data.modelCatalog[provider] ?? [])];
 	}
 
@@ -621,6 +682,12 @@
 							{/each}
 						</Select.Content>
 					</Select.Root>
+					{#if chatGptBlocksBrowserRun()}
+						<p class="text-xs text-muted-foreground">
+							Browser runs need an OpenAI API key. ChatGPT sign-in works for tool-agent runs with Codex
+							models.
+						</p>
+					{/if}
 				</div>
 				<div class="grid gap-2">
 					<Label class="text-xs">Browserbase credential</Label>
