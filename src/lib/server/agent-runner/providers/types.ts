@@ -1,3 +1,4 @@
+import type { OpenAITransport } from '$lib/server/openai-transport';
 import type { ToolDefinition } from '$lib/server/tools/registry';
 
 export type AgentModelMessage = {
@@ -26,6 +27,7 @@ export type ModelProviderAdapter = {
 	createResponse(input: {
 		model: string;
 		apiKey: string;
+		openaiTransport?: OpenAITransport;
 		messages: AgentModelMessage[];
 		tools: ToolDefinition[];
 		temperature?: number;
