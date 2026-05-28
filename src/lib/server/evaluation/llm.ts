@@ -1,8 +1,15 @@
 import { env } from '$env/dynamic/private';
 import type { events, runs, spans } from '$lib/server/db/schema';
+import {
+	postOpenAIResponses,
+	resolveModelForTransport,
+	type OpenAITransport
+} from '$lib/server/openai-transport';
 import { llmEvaluationSchema, type LlmEvaluation } from './types';
 
 const DEFAULT_MODEL = 'gpt-4.1-mini';
+const EVAL_SYSTEM_PROMPT =
+	'You evaluate agent run logs. Return only JSON matching the requested schema.';
 
 type RunRow = typeof runs.$inferSelect;
 type EventRow = typeof events.$inferSelect;
@@ -24,9 +31,8 @@ export async function runLlmEvaluation(input: {
 	spans?: SpanRow[];
 	constraints: string[];
 	ruleSummary: unknown;
+	transport: OpenAITransport;
 }) {
-	if (!env.OPENAI_API_KEY) return { skipped: true as const, reason: 'OPENAI_API_KEY is not set' };
-
 	const timeline = input.events.map((event) => ({
 		id: event.publicId,
 		sequence: event.sequence,
@@ -37,65 +43,73 @@ export async function runLlmEvaluation(input: {
 		data: event.data
 	}));
 
-	const response = await fetch('https://api.openai.com/v1/responses', {
-		method: 'POST',
-		headers: {
-			authorization: `Bearer ${env.OPENAI_API_KEY}`,
-			'content-type': 'application/json'
-		},
-		body: JSON.stringify({
-			model: env.OPENAI_EVAL_MODEL || DEFAULT_MODEL,
-			input: [
+	const userContent = JSON.stringify({
+		schema: {
+			goalCompleted: 'boolean',
+			violatedConstraints: 'boolean',
+			score: 'integer 0-100',
+			summary: 'string',
+			explanation: 'string',
+			findings: [
 				{
-					role: 'system',
-					content: 'You evaluate agent run logs. Return only JSON matching the requested schema.'
-				},
-				{
-					role: 'user',
-					content: JSON.stringify({
-						schema: {
-							goalCompleted: 'boolean',
-							violatedConstraints: 'boolean',
-							score: 'integer 0-100',
-							summary: 'string',
-							explanation: 'string',
-							findings: [
-								{
-									severity: 'info | warning | error',
-									category:
-										'goal_completion | constraint_violation | repetition | human_approval | tool_failure | other',
-									message: 'string',
-									eventPublicId: 'optional string'
-								}
-							]
-						},
-						goal: input.run.goal,
-						constraints: input.constraints,
-						ruleSummary: input.ruleSummary,
-						timeline,
-						spans: input.spans?.map((span) => ({
-							id: span.publicId,
-							parentSpanId: span.parentSpanId,
-							kind: span.kind,
-							name: span.name,
-							status: span.status,
-							input: span.input,
-							output: span.output,
-							error: span.error,
-							attributes: span.attributes
-						}))
-					})
+					severity: 'info | warning | error',
+					category:
+						'goal_completion | constraint_violation | repetition | human_approval | tool_failure | other',
+					message: 'string',
+					eventPublicId: 'optional string'
 				}
-			],
-			text: { format: { type: 'json_object' } }
-		})
+			]
+		},
+		goal: input.run.goal,
+		constraints: input.constraints,
+		ruleSummary: input.ruleSummary,
+		timeline,
+		spans: input.spans?.map((span) => ({
+			id: span.publicId,
+			parentSpanId: span.parentSpanId,
+			kind: span.kind,
+			name: span.name,
+			status: span.status,
+			input: span.input,
+			output: span.output,
+			error: span.error,
+			attributes: span.attributes
+		}))
 	});
 
-	if (!response.ok) {
-		throw new Error(`OpenAI evaluation failed: ${response.status} ${await response.text()}`);
-	}
+	const model =
+		resolveModelForTransport(input.transport, env.OPENAI_EVAL_MODEL || DEFAULT_MODEL) ??
+		env.OPENAI_EVAL_MODEL ??
+		DEFAULT_MODEL;
 
-	const payload = (await response.json()) as OpenAIResponsePayload;
+	const body =
+		input.transport.kind === 'codex'
+			? {
+					model,
+					instructions: EVAL_SYSTEM_PROMPT,
+					input: [
+						{
+							role: 'user',
+							content: [{ type: 'input_text', text: userContent }]
+						}
+					],
+					tools: [],
+					tool_choice: 'none',
+					parallel_tool_calls: false
+				}
+			: {
+					model,
+					input: [
+						{ role: 'system', content: EVAL_SYSTEM_PROMPT },
+						{ role: 'user', content: userContent }
+					],
+					text: { format: { type: 'json_object' } }
+				};
+
+	const payload = (await postOpenAIResponses({
+		transport: input.transport,
+		body
+	})) as OpenAIResponsePayload;
 	const outputText = extractOutputText(payload);
 	if (!outputText) throw new Error('OpenAI evaluation returned no text output');
 	return { skipped: false as const, evaluation: llmEvaluationSchema.parse(JSON.parse(outputText)) };
