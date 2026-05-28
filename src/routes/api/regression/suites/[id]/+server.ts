@@ -2,6 +2,12 @@ import { requireUserId } from '$lib/server/auth';
 import { notFound, ok, parseJson } from '$lib/server/http';
 import { createRegressionCase, findRegressionSuiteForUser } from '$lib/server/regression/suites';
 import { createRegressionCaseSchema } from '$lib/server/validation';
+import { getPostHogClient } from '$lib/server/posthog';
+
+/** @type {import('@sveltejs/adapter-vercel').Config} */
+export const config = {
+	maxDuration: 300
+};
 
 export async function POST(event) {
 	const userId = requireUserId(event);
@@ -10,6 +16,18 @@ export async function POST(event) {
 
 	const input = await parseJson(event, createRegressionCaseSchema);
 	const testCase = await createRegressionCase(suite.id, input);
+
+	const posthog = getPostHogClient();
+	posthog.capture({
+		distinctId: event.request.headers.get('x-posthog-distinct-id') || userId,
+		event: 'regression_case_added',
+		properties: {
+			suite_id: event.params.id,
+			case_id: testCase.publicId,
+			min_score: testCase.minScore,
+			$session_id: event.request.headers.get('x-posthog-session-id') || undefined
+		}
+	});
 
 	return ok(
 		{

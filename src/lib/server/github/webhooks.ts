@@ -1,10 +1,8 @@
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { regressionRuns } from '$lib/server/db/schema';
-import {
-	createRegressionRunForRepository,
-	scheduleRegressionRun
-} from '$lib/server/regression/runs';
+import { createRegressionRunForRepository } from '$lib/server/regression/runs';
+import { scheduleRegressionRun } from '$lib/server/regression/executor';
 import { deleteGithubInstallation, upsertGithubInstallation } from '$lib/server/regression/suites';
 import { getGithubApp, isGithubAppConfigured } from './app';
 import { CHECK_NAME, createRegressionCheckRun } from './checks';
@@ -44,11 +42,15 @@ type CheckRunPayload = {
 	installation?: { id: number };
 };
 
+let githubWebhookHandlersRegistered = false;
+
 export async function handleGithubWebhook(request: Request) {
 	const githubApp = getGithubApp();
 	if (!githubApp || !isGithubAppConfigured()) {
 		return new Response('GitHub App is not configured', { status: 503 });
 	}
+
+	ensureGithubWebhookHandlersRegistered(githubApp);
 
 	const payload = await request.text();
 	const id = request.headers.get('x-github-delivery') ?? 'unknown';
@@ -71,10 +73,15 @@ export async function handleGithubWebhook(request: Request) {
 	return new Response('ok');
 }
 
-export function registerGithubWebhookHandlers() {
-	const githubApp = getGithubApp();
-	if (!githubApp) return;
+function ensureGithubWebhookHandlersRegistered(
+	githubApp: NonNullable<ReturnType<typeof getGithubApp>>
+) {
+	if (githubWebhookHandlersRegistered) return;
+	githubWebhookHandlersRegistered = true;
+	registerGithubWebhookHandlers(githubApp);
+}
 
+function registerGithubWebhookHandlers(githubApp: NonNullable<ReturnType<typeof getGithubApp>>) {
 	githubApp.webhooks.on('installation', async ({ payload }) => {
 		const event = payload as InstallationPayload;
 		if (event.action === 'created') {

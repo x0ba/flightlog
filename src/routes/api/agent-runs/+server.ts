@@ -4,6 +4,12 @@ import { createAgentRun } from '$lib/server/agent-runner/service';
 import { requireUserId } from '$lib/server/auth';
 import { ok, parseJson } from '$lib/server/http';
 import { createAgentRunSchema } from '$lib/server/validation';
+import { getPostHogClient } from '$lib/server/posthog';
+
+/** @type {import('@sveltejs/adapter-vercel').Config} */
+export const config = {
+	maxDuration: 300
+};
 
 export async function POST(event) {
 	const userId = requireUserId(event);
@@ -22,6 +28,24 @@ export async function POST(event) {
 		}
 	}
 	const run = await createAgentRun({ ...input, ownerUserId: userId });
+
+	const posthog = getPostHogClient();
+	const distinctId = event.request.headers.get('x-posthog-distinct-id') || userId;
+	posthog.capture({
+		distinctId,
+		event: 'agent_run_created',
+		properties: {
+			run_id: run.publicId,
+			run_mode: input.runMode,
+			provider: input.provider,
+			framework: input.framework,
+			model: input.model,
+			approval_policy: input.approvalPolicy,
+			max_steps: input.maxSteps,
+			$session_id: event.request.headers.get('x-posthog-session-id') || undefined
+		}
+	});
+
 	return ok(
 		{
 			run: {

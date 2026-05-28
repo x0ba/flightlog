@@ -8,13 +8,9 @@ import { appendEvent, listEvents } from '$lib/server/events';
 import { evaluateRun } from '$lib/server/evaluation/service';
 import { findRun, patchRunMetadata, updateRun } from '$lib/server/runs';
 import { listSpans } from '$lib/server/traces';
-import { createBrowserSession } from './browser';
 import { needsApproval, resolveApproval, waitForApproval } from './approval';
-import { assertChatGptSupportsBrowserRuns } from '$lib/server/openai-transport';
-import { continueComputerResponse, createInitialComputerResponse } from './openai';
 import { getProviderApiKey } from '$lib/server/provider-credentials';
 import { publishRunEvent } from './stream';
-import { runToolAgent } from './tool-agent';
 import type {
 	AgentRequestMetadata,
 	ApprovalDecision,
@@ -156,6 +152,7 @@ async function runAgent(publicRunId: string) {
 					throw new Error('Run is missing an owner user id; assign legacy runs before resuming.');
 				}
 				publishRunEvent(publicRunId, { type: 'run', data: runningRun });
+				const { runToolAgent } = await import('./tool-agent');
 				await runToolAgent({
 					run: {
 						id: runningRun.id,
@@ -178,6 +175,10 @@ async function runAgent(publicRunId: string) {
 		}
 		return;
 	}
+
+	const { assertChatGptSupportsBrowserRuns } = await import('$lib/server/openai-transport');
+	const { createBrowserSession } = await import('./browser');
+	const { continueComputerResponse, createInitialComputerResponse } = await import('./openai');
 
 	if (!initialRun.ownerUserId) {
 		await failRun(publicRunId, 'Run is missing an owner user id.');

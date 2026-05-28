@@ -91,7 +91,7 @@ jobs:
 				<a href="https://github.com/x0ba/flightlog">GitHub</a>
 			</nav>
 
-			<a href={resolve('/runs')} class="nav-cta">
+			<a href={resolve('/runs')} rel="external" class="nav-cta">
 				Dashboard
 				<ArrowUpRight class="size-3.5" />
 			</a>
@@ -112,7 +112,7 @@ jobs:
 				requests on regression suites — surfaced directly as GitHub Check Runs.
 			</p>
 			<div class="cta-row">
-				<a href={resolve('/runs')} class="btn-primary">
+				<a href={resolve('/runs')} rel="external" class="btn-primary">
 					Open dashboard
 					<ArrowUpRight class="size-4" />
 				</a>
@@ -176,7 +176,7 @@ jobs:
 		<div>
 			<a href="https://github.com/x0ba/flightlog">GitHub</a>
 			<a href="https://github.com/x0ba/flightlog/blob/main/README.md">Docs</a>
-			<a href={resolve('/runs')}>Dashboard</a>
+			<a href={resolve('/runs')} rel="external">Dashboard</a>
 		</div>
 	</footer>
 </div>
@@ -196,7 +196,6 @@ jobs:
 		z-index: 40;
 		background: color-mix(in oklch, var(--background) 75%, transparent);
 		backdrop-filter: blur(10px);
-		-webkit-backdrop-filter: blur(10px);
 		border-bottom: 1px solid var(--rule);
 		transition:
 			padding 360ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -207,6 +206,7 @@ jobs:
 		padding: 12px 16px 0;
 		background: transparent;
 		border-bottom-color: transparent;
+		backdrop-filter: none;
 	}
 	.nav {
 		display: flex;
@@ -225,14 +225,28 @@ jobs:
 			box-shadow 360ms cubic-bezier(0.22, 1, 0.36, 1);
 	}
 	.nav.is-floating {
+		position: relative;
+		isolation: isolate;
+		overflow: hidden;
 		max-width: 820px;
 		padding: 8px 10px 8px 18px;
 		border-radius: 999px;
 		border: 1px solid color-mix(in oklch, var(--foreground) 12%, transparent);
+		background: transparent;
+		box-shadow: 0 10px 30px -16px rgba(0, 0, 0, 0.6);
+	}
+	.nav.is-floating::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		z-index: 0;
+		border-radius: inherit;
 		background: color-mix(in oklch, var(--background) 80%, transparent);
 		backdrop-filter: blur(10px);
-		-webkit-backdrop-filter: blur(10px);
-		box-shadow: 0 10px 30px -16px rgba(0, 0, 0, 0.6);
+	}
+	.nav.is-floating > * {
+		position: relative;
+		z-index: 1;
 	}
 	.brand {
 		display: inline-flex;

@@ -2,6 +2,11 @@ import { requireUserId } from '$lib/server/auth';
 import { notFound, ok } from '$lib/server/http';
 import { findRegressionRunForUser } from '$lib/server/regression/runs';
 
+/** @type {import('@sveltejs/adapter-vercel').Config} */
+export const config = {
+	maxDuration: 300
+};
+
 export async function GET(event) {
 	const userId = requireUserId(event);
 	const detail = await findRegressionRunForUser(event.params.id, userId);

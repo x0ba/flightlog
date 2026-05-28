@@ -8,6 +8,9 @@ const config = {
 	},
 	kit: {
 		adapter: adapter(),
+		paths: {
+			relative: false
+		},
 
 		typescript: {
 			config: (config) => ({
@@ -18,7 +21,7 @@ const config = {
 
 		experimental: {
 			tracing: {
-				server: true
+				server: process.env.VERCEL !== '1'
 			},
 
 			instrumentation: {

@@ -1,8 +1,15 @@
 import { requireUserId } from '$lib/server/auth';
 import { notFound, ok, parseJson } from '$lib/server/http';
-import { createRegressionRun, scheduleRegressionRun } from '$lib/server/regression/runs';
+import { createRegressionRun } from '$lib/server/regression/runs';
+import { scheduleRegressionRun } from '$lib/server/regression/executor';
 import { findRegressionSuiteForUser } from '$lib/server/regression/suites';
 import { startRegressionRunSchema } from '$lib/server/validation';
+import { getPostHogClient } from '$lib/server/posthog';
+
+/** @type {import('@sveltejs/adapter-vercel').Config} */
+export const config = {
+	maxDuration: 300
+};
 
 export async function POST(event) {
 	const userId = requireUserId(event);
@@ -21,6 +28,19 @@ export async function POST(event) {
 	if (!regressionRun) notFound('Regression suite not found');
 
 	scheduleRegressionRun(regressionRun.id);
+
+	const posthog = getPostHogClient();
+	posthog.capture({
+		distinctId: event.request.headers.get('x-posthog-distinct-id') || userId,
+		event: 'regression_run_started',
+		properties: {
+			suite_id: event.params.id,
+			run_id: regressionRun.publicId,
+			github_sha: input.githubSha ?? undefined,
+			pull_request_number: input.pullRequestNumber ?? undefined,
+			$session_id: event.request.headers.get('x-posthog-session-id') || undefined
+		}
+	});
 
 	return ok(
 		{

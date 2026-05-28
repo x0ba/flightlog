@@ -5,6 +5,8 @@
 	import PageHeader from '$lib/components/page-header.svelte';
 	import Section from '$lib/components/section.svelte';
 	import StatusPill from '$lib/components/status-pill.svelte';
+	import posthog from 'posthog-js';
+	import { browser } from '$app/environment';
 
 	let { data } = $props();
 	let isActiveRun = $derived(['pending', 'running'].includes(data.regressionRun.status));
@@ -13,6 +15,16 @@
 		if (!isActiveRun) return;
 		const interval = window.setInterval(() => void invalidateAll(), 3000);
 		return () => window.clearInterval(interval);
+	});
+
+	$effect(() => {
+		if (browser) {
+			posthog.capture('regression_run_viewed', {
+				run_id: data.regressionRun.publicId,
+				run_status: data.regressionRun.status,
+				suite_id: data.suite.publicId
+			});
+		}
 	});
 
 	function formatDate(value: string | Date | null) {
