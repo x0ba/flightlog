@@ -38,3 +38,6 @@ The SDK/API layer should let the agent log:
 
 - Whenever making new UI, use shadcn components by adding them using `bunx shadcn-svelte@latest add <component>`.
 - When editing the shape of the data: prefer changing the schema.ts file over writing SQL migration files.
+- ChatGPT subscription auth uses the Codex OAuth flow in `src/lib/server/openai-oauth/`; tokens are
+ encrypted in `provider_credentials` and refreshed automatically before agent runs. Tool-agent runs
+ with a ChatGPT credential call `POST chatgpt.com/backend-api/codex/responses` (stream-only SSE).

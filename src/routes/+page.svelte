@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { ArrowUpRight, GitBranch, Activity, ShieldCheck } from '@lucide/svelte';
 
@@ -38,9 +39,27 @@ jobs:
 		{
 			icon: GitBranch,
 			title: 'CI Regression',
-			body: 'Map suites to GitHub repos. PR webhooks execute cases and post aggregate + per-case Check Runs linked back to traces.'
+			body: 'Map suites to GitHub repos. PR webhooks execute cases and post aggregate + per-case Check Runs linked to traces.'
 		}
 	] as const;
+
+	const stats = [
+		['Eval signals', '4', 'completion, constraints, repetition, approvals'],
+		['Runtimes', 'any', 'native, AI SDK, LangChain, custom'],
+		['CI surface', 'GitHub', 'Check Runs with deep links to traces'],
+		['License', 'MIT', 'self-host or use hosted']
+	] as const;
+
+	let scrolled = $state(false);
+
+	onMount(() => {
+		const onScroll = () => {
+			scrolled = window.scrollY > 16;
+		};
+		onScroll();
+		window.addEventListener('scroll', onScroll, { passive: true });
+		return () => window.removeEventListener('scroll', onScroll);
+	});
 </script>
 
 <svelte:head>
@@ -51,169 +70,505 @@ jobs:
 	/>
 </svelte:head>
 
-<div class="min-h-screen bg-background text-foreground">
-	<header class="border-b border-border/60">
-		<div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-			<a href="/" class="flex items-center gap-2.5">
-				<div
-					class="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 ring-1 ring-primary/30"
-				>
-					<svg
-						width="13"
-						height="13"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="1.6"
-						class="text-primary"
-					>
+<div class="page">
+	<header class="nav-wrap" class:is-floating={scrolled}>
+		<div class="nav" class:is-floating={scrolled}>
+			<a href={resolve('/')} class="brand">
+				<span class="brand-mark">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
 						<path
 							d="M17.8 19.2L16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"
 						/>
 					</svg>
-				</div>
-				<span class="text-[15px] font-semibold tracking-tight">FlightLog</span>
+				</span>
+				<span>FlightLog</span>
 			</a>
-			<nav class="flex items-center gap-2">
-				<a
-					href="https://github.com/x0ba/flightlog"
-					class="hidden rounded-md px-3 py-1.5 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground sm:inline-flex"
-				>
-					GitHub
-				</a>
-				<a
-					href={resolve('/runs')}
-					class="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-				>
-					Dashboard
-					<ArrowUpRight class="size-3.5" />
-				</a>
+
+			<nav class="nav-links">
+				<a href="#sdk">SDK</a>
+				<a href="#ci">CI</a>
+				<a href="#specs">Specs</a>
+				<a href="https://github.com/x0ba/flightlog">GitHub</a>
 			</nav>
+
+			<a href={resolve('/runs')} class="nav-cta">
+				Dashboard
+				<ArrowUpRight class="size-3.5" />
+			</a>
 		</div>
 	</header>
 
-	<main class="mx-auto max-w-6xl px-6">
-		<section class="py-24 sm:py-32">
-			<p
-				class="mb-5 inline-flex items-center gap-2 rounded-full border border-border/60 bg-card px-3 py-1 font-mono text-[11px] tracking-wider text-muted-foreground uppercase"
-			>
-				<span class="size-1.5 rounded-full bg-primary"></span>
+	<main>
+		<section class="hero">
+			<p class="eyebrow">
+				<span class="dot"></span>
 				v0.1 · open source
 			</p>
-			<h1 class="max-w-3xl text-4xl leading-[1.05] font-semibold tracking-tight sm:text-6xl">
-				Observability and CI regression for autonomous agents.
+			<h1>
+				Observability and CI regression<br />for autonomous agents.
 			</h1>
-			<p class="mt-6 max-w-2xl text-base text-muted-foreground sm:text-lg">
+			<p class="lede">
 				FlightLog records what your browser and tool-calling agents did, scores it, and gates pull
 				requests on regression suites — surfaced directly as GitHub Check Runs.
 			</p>
-			<div class="mt-8 flex flex-wrap items-center gap-3">
-				<a
-					href={resolve('/runs')}
-					class="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-				>
+			<div class="cta-row">
+				<a href={resolve('/runs')} class="btn-primary">
 					Open dashboard
 					<ArrowUpRight class="size-4" />
 				</a>
-				<a
-					href="#sdk"
-					class="inline-flex items-center rounded-md border border-border bg-card px-4 py-2 font-mono text-xs text-foreground transition-colors hover:bg-secondary"
-				>
-					npm i @flightlog/sdk
-				</a>
+				<a href="#sdk" class="btn-ghost">npm i @flightlog/sdk</a>
 			</div>
 		</section>
 
-		<section class="border-t border-border/60 py-20">
-			<div
-				class="grid gap-px overflow-hidden rounded-lg border border-border/60 bg-border/60 sm:grid-cols-3"
-			>
+		<section class="caps">
+			<div class="cap-grid">
 				{#each capabilities as cap (cap.title)}
-					<div class="bg-card p-6">
-						<cap.icon class="size-4 text-primary" />
-						<h3 class="mt-4 text-[15px] font-semibold tracking-tight">{cap.title}</h3>
-						<p class="mt-2 text-sm leading-relaxed text-muted-foreground">{cap.body}</p>
-					</div>
+					<article class="cap">
+						<cap.icon class="cap-icon" />
+						<h3>{cap.title}</h3>
+						<p>{cap.body}</p>
+					</article>
 				{/each}
 			</div>
 		</section>
 
-		<section id="sdk" class="border-t border-border/60 py-20">
-			<div class="grid gap-10 lg:grid-cols-[1fr_1.4fr] lg:items-start">
-				<div>
-					<p class="font-mono text-[11px] tracking-wider text-muted-foreground uppercase">
-						01 — Instrument
-					</p>
-					<h2 class="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
-						One SDK. Every step of the loop.
-					</h2>
-					<p class="mt-4 text-sm text-muted-foreground sm:text-base">
-						Drop the SDK into any agent runtime — native, AI SDK, LangChain, or custom. Emit
-						<code class="font-mono text-foreground">plan</code>,
-						<code class="font-mono text-foreground">tool</code>,
-						<code class="font-mono text-foreground">observe</code>, and
-						<code class="font-mono text-foreground">decide</code> events. Traces render as a replayable
-						timeline with screenshots and DOM snapshots aligned to each step.
-					</p>
-				</div>
-				<pre
-					class="overflow-x-auto rounded-lg border border-border/60 bg-card p-5 font-mono text-[12.5px] leading-relaxed text-foreground/90"><code
-						>{sdkSnippet}</code
-					></pre>
+		<section id="sdk" class="split">
+			<div class="split-copy">
+				<p class="kicker">01 — Instrument</p>
+				<h2>One SDK. Every step of the loop.</h2>
+				<p>
+					Drop the SDK into any agent runtime — native, AI SDK, LangChain, or custom. Emit
+					<code>plan</code>, <code>tool</code>, <code>observe</code>, and <code>decide</code> events.
+					Traces render as a replayable timeline with screenshots and DOM snapshots aligned to each step.
+				</p>
+			</div>
+			<pre><code>{sdkSnippet}</code></pre>
+		</section>
+
+		<section id="ci" class="split reverse">
+			<pre><code>{checkSnippet}</code></pre>
+			<div class="split-copy">
+				<p class="kicker">02 — Gate</p>
+				<h2>Block regressions before they merge.</h2>
+				<p>
+					Define goal-based cases with score thresholds. PR webhooks execute the suite and report a
+					GitHub Check Run with per-case results. Failed checks deep-link to the exact trace and the
+					step that broke.
+				</p>
 			</div>
 		</section>
 
-		<section class="border-t border-border/60 py-20">
-			<div class="grid gap-10 lg:grid-cols-[1.4fr_1fr] lg:items-start">
-				<pre
-					class="order-2 overflow-x-auto rounded-lg border border-border/60 bg-card p-5 font-mono text-[12.5px] leading-relaxed text-foreground/90 lg:order-1"><code
-						>{checkSnippet}</code
-					></pre>
-				<div class="order-1 lg:order-2">
-					<p class="font-mono text-[11px] tracking-wider text-muted-foreground uppercase">
-						02 — Gate
-					</p>
-					<h2 class="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
-						Block regressions before they merge.
-					</h2>
-					<p class="mt-4 text-sm text-muted-foreground sm:text-base">
-						Define goal-based cases with score thresholds. PR webhooks execute the suite and report
-						a GitHub Check Run with per-case results. Failed checks deep-link to the exact trace and
-						the step that broke.
-					</p>
-				</div>
-			</div>
-		</section>
-
-		<section class="border-t border-border/60 py-20">
-			<dl
-				class="grid gap-px overflow-hidden rounded-lg border border-border/60 bg-border/60 sm:grid-cols-4"
-			>
-				{#each [['Eval signals', '4', 'completion, constraints, repetition, approvals'], ['Runtimes', 'any', 'native, AI SDK, LangChain, custom'], ['CI surface', 'GitHub', 'Check Runs with deep links to traces'], ['License', 'MIT', 'self-host or use hosted']] as [label, value, sub]}
-					<div class="bg-card p-6">
-						<dt class="font-mono text-[11px] tracking-wider text-muted-foreground uppercase">
-							{label}
-						</dt>
-						<dd class="mt-2 text-2xl font-semibold tracking-tight">{value}</dd>
-						<p class="mt-1 text-xs text-muted-foreground">{sub}</p>
+		<section id="specs" class="stats">
+			<dl>
+				{#each stats as [label, value, sub] (label)}
+					<div>
+						<dt>{label}</dt>
+						<dd>{value}</dd>
+						<p>{sub}</p>
 					</div>
 				{/each}
 			</dl>
 		</section>
 	</main>
 
-	<footer class="border-t border-border/60">
-		<div
-			class="mx-auto flex max-w-6xl flex-col gap-3 px-6 py-6 sm:flex-row sm:items-center sm:justify-between"
-		>
-			<p class="font-mono text-[11px] tracking-wider text-muted-foreground uppercase">
-				FlightLog · agent observability
-			</p>
-			<div class="flex items-center gap-5 font-mono text-[11px] text-muted-foreground">
-				<a href="https://github.com/x0ba/flightlog" class="hover:text-foreground">GitHub</a>
-				<a href="/docs" class="hover:text-foreground">Docs</a>
-				<a href={resolve('/runs')} class="hover:text-foreground">Dashboard</a>
-			</div>
+	<footer class="foot">
+		<p>FlightLog · agent observability</p>
+		<div>
+			<a href="https://github.com/x0ba/flightlog">GitHub</a>
+			<a href="https://github.com/x0ba/flightlog/blob/main/README.md">Docs</a>
+			<a href={resolve('/runs')}>Dashboard</a>
 		</div>
 	</footer>
 </div>
+
+<style>
+	.page {
+		--rule: color-mix(in oklch, var(--border) 80%, transparent);
+		min-height: 100vh;
+		background: var(--background);
+		color: var(--foreground);
+	}
+
+	/* ───────────── nav ───────────── */
+	.nav-wrap {
+		position: sticky;
+		top: 0;
+		z-index: 40;
+		background: color-mix(in oklch, var(--background) 75%, transparent);
+		backdrop-filter: blur(10px);
+		-webkit-backdrop-filter: blur(10px);
+		border-bottom: 1px solid var(--rule);
+		transition:
+			padding 360ms cubic-bezier(0.22, 1, 0.36, 1),
+			background 360ms cubic-bezier(0.22, 1, 0.36, 1),
+			border-color 360ms cubic-bezier(0.22, 1, 0.36, 1);
+	}
+	.nav-wrap.is-floating {
+		padding: 12px 16px 0;
+		background: transparent;
+		border-bottom-color: transparent;
+	}
+	.nav {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 24px;
+		max-width: 1120px;
+		margin: 0 auto;
+		padding: 14px 24px;
+		transition:
+			max-width 360ms cubic-bezier(0.22, 1, 0.36, 1),
+			padding 360ms cubic-bezier(0.22, 1, 0.36, 1),
+			border-radius 360ms cubic-bezier(0.22, 1, 0.36, 1),
+			border-color 360ms cubic-bezier(0.22, 1, 0.36, 1),
+			background 360ms cubic-bezier(0.22, 1, 0.36, 1),
+			box-shadow 360ms cubic-bezier(0.22, 1, 0.36, 1);
+	}
+	.nav.is-floating {
+		max-width: 820px;
+		padding: 8px 10px 8px 18px;
+		border-radius: 999px;
+		border: 1px solid color-mix(in oklch, var(--foreground) 12%, transparent);
+		background: color-mix(in oklch, var(--background) 80%, transparent);
+		backdrop-filter: blur(10px);
+		-webkit-backdrop-filter: blur(10px);
+		box-shadow: 0 10px 30px -16px rgba(0, 0, 0, 0.6);
+	}
+	.brand {
+		display: inline-flex;
+		align-items: center;
+		gap: 10px;
+		font-size: 15px;
+		font-weight: 600;
+		letter-spacing: -0.01em;
+	}
+	.brand-mark {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 26px;
+		height: 26px;
+		border-radius: 7px;
+		color: var(--primary);
+		background: color-mix(in oklch, var(--primary) 12%, transparent);
+		box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--primary) 30%, transparent);
+	}
+	.brand-mark svg {
+		width: 13px;
+		height: 13px;
+	}
+	.nav-links {
+		display: none;
+		align-items: center;
+		gap: 24px;
+		font-size: 13px;
+		color: var(--muted-foreground);
+	}
+	.nav-links a {
+		transition: color 180ms;
+	}
+	.nav-links a:hover {
+		color: var(--foreground);
+	}
+	@media (min-width: 720px) {
+		.nav-links {
+			display: inline-flex;
+		}
+	}
+	.nav-cta {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		padding: 7px 14px;
+		border-radius: 999px;
+		font-size: 12.5px;
+		font-weight: 500;
+		color: var(--primary-foreground);
+		background: var(--primary);
+		transition:
+			background 180ms,
+			transform 180ms;
+	}
+	.nav-cta:hover {
+		transform: translateY(-1px);
+	}
+
+	/* ───────────── layout ───────────── */
+	main {
+		max-width: 1120px;
+		margin: 0 auto;
+		padding: 0 24px;
+	}
+
+	/* ───────────── hero ───────────── */
+	.hero {
+		padding: 112px 0 96px;
+	}
+	@media (min-width: 720px) {
+		.hero {
+			padding: 144px 0 120px;
+		}
+	}
+	.eyebrow {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		padding: 5px 12px;
+		border: 1px solid var(--rule);
+		border-radius: 999px;
+		background: color-mix(in oklch, var(--card) 60%, transparent);
+		font-family: var(--font-mono);
+		font-size: 11px;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--muted-foreground);
+	}
+	.eyebrow .dot {
+		width: 6px;
+		height: 6px;
+		border-radius: 999px;
+		background: var(--primary);
+	}
+	.hero h1 {
+		margin: 28px 0 0;
+		max-width: 22ch;
+		font-size: clamp(38px, 5.6vw, 64px);
+		line-height: 1.04;
+		letter-spacing: -0.025em;
+		font-weight: 500;
+	}
+	.lede {
+		margin-top: 22px;
+		max-width: 60ch;
+		font-size: clamp(15px, 1.1vw, 17px);
+		line-height: 1.55;
+		color: var(--muted-foreground);
+	}
+	.cta-row {
+		margin-top: 32px;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 10px;
+	}
+	.btn-primary {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		padding: 10px 16px;
+		border-radius: 8px;
+		font-size: 13.5px;
+		font-weight: 500;
+		color: var(--primary-foreground);
+		background: var(--primary);
+		transition:
+			background 180ms,
+			transform 180ms;
+	}
+	.btn-primary:hover {
+		transform: translateY(-1px);
+	}
+	.btn-ghost {
+		display: inline-flex;
+		align-items: center;
+		padding: 10px 16px;
+		border: 1px solid var(--rule);
+		border-radius: 8px;
+		background: var(--card);
+		font-family: var(--font-mono);
+		font-size: 12.5px;
+		color: var(--foreground);
+		transition:
+			background 180ms,
+			border-color 180ms;
+	}
+	.btn-ghost:hover {
+		background: var(--secondary);
+		border-color: color-mix(in oklch, var(--foreground) 18%, transparent);
+	}
+
+	/* ───────────── caps ───────────── */
+	.caps {
+		border-top: 1px solid var(--rule);
+		padding: 64px 0;
+	}
+	.cap-grid {
+		display: grid;
+		gap: 1px;
+		background: var(--rule);
+		border: 1px solid var(--rule);
+		border-radius: 12px;
+		overflow: hidden;
+	}
+	@media (min-width: 820px) {
+		.cap-grid {
+			grid-template-columns: repeat(3, 1fr);
+		}
+	}
+	.cap {
+		padding: 28px 26px 32px;
+		background: var(--card);
+	}
+	:global(.cap-icon) {
+		width: 16px;
+		height: 16px;
+		color: var(--primary);
+	}
+	.cap h3 {
+		margin: 18px 0 0;
+		font-size: 15px;
+		font-weight: 600;
+		letter-spacing: -0.01em;
+	}
+	.cap p {
+		margin: 8px 0 0;
+		font-size: 14px;
+		line-height: 1.55;
+		color: var(--muted-foreground);
+	}
+
+	/* ───────────── split ───────────── */
+	.split {
+		display: grid;
+		gap: 40px;
+		align-items: start;
+		border-top: 1px solid var(--rule);
+		padding: 80px 0;
+	}
+	@media (min-width: 920px) {
+		.split {
+			grid-template-columns: 1fr 1.3fr;
+			gap: 64px;
+		}
+		.split.reverse .split-copy {
+			order: 2;
+		}
+		.split.reverse pre {
+			order: 1;
+		}
+	}
+	.kicker {
+		font-family: var(--font-mono);
+		font-size: 11px;
+		letter-spacing: 0.16em;
+		text-transform: uppercase;
+		color: var(--muted-foreground);
+		margin: 0;
+	}
+	.split-copy h2 {
+		margin: 12px 0 0;
+		font-size: clamp(22px, 2.4vw, 30px);
+		line-height: 1.15;
+		letter-spacing: -0.015em;
+		font-weight: 500;
+	}
+	.split-copy p {
+		margin: 16px 0 0;
+		max-width: 48ch;
+		font-size: 15px;
+		line-height: 1.6;
+		color: var(--muted-foreground);
+	}
+	.split-copy code {
+		font-family: var(--font-mono);
+		font-size: 0.88em;
+		padding: 1px 5px;
+		border-radius: 4px;
+		color: var(--foreground);
+		background: color-mix(in oklch, var(--foreground) 7%, transparent);
+	}
+	.split pre {
+		margin: 0;
+		padding: 22px;
+		overflow-x: auto;
+		border: 1px solid var(--rule);
+		border-radius: 12px;
+		background: var(--card);
+		font-family: var(--font-mono);
+		font-size: 12.5px;
+		line-height: 1.65;
+		color: color-mix(in oklch, var(--foreground) 92%, transparent);
+	}
+
+	/* ───────────── stats ───────────── */
+	.stats {
+		border-top: 1px solid var(--rule);
+		padding: 64px 0 96px;
+	}
+	.stats dl {
+		display: grid;
+		gap: 1px;
+		background: var(--rule);
+		border: 1px solid var(--rule);
+		border-radius: 12px;
+		overflow: hidden;
+	}
+	@media (min-width: 720px) {
+		.stats dl {
+			grid-template-columns: repeat(4, 1fr);
+		}
+	}
+	.stats dl > div {
+		padding: 24px 22px 26px;
+		background: var(--card);
+	}
+	.stats dt {
+		font-family: var(--font-mono);
+		font-size: 11px;
+		letter-spacing: 0.16em;
+		text-transform: uppercase;
+		color: var(--muted-foreground);
+	}
+	.stats dd {
+		margin: 10px 0 4px;
+		font-size: 26px;
+		font-weight: 600;
+		letter-spacing: -0.015em;
+	}
+	.stats p {
+		margin: 0;
+		font-size: 12.5px;
+		color: var(--muted-foreground);
+	}
+
+	/* ───────────── footer ───────────── */
+	.foot {
+		max-width: 1120px;
+		margin: 0 auto;
+		padding: 24px;
+		border-top: 1px solid var(--rule);
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		font-family: var(--font-mono);
+		font-size: 11px;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--muted-foreground);
+	}
+	.foot div {
+		display: flex;
+		gap: 20px;
+	}
+	.foot a {
+		transition: color 180ms;
+	}
+	.foot a:hover {
+		color: var(--foreground);
+	}
+	@media (min-width: 640px) {
+		.foot {
+			flex-direction: row;
+			align-items: center;
+			justify-content: space-between;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.nav,
+		.nav-wrap,
+		.nav-cta,
+		.btn-primary {
+			transition: none;
+		}
+	}
+</style>

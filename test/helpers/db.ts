@@ -14,6 +14,7 @@ export async function resetDatabase() {
 			regression_runs,
 			regression_cases,
 			regression_suites,
+			oauth_connect_states,
 			provider_credentials,
 			github_installations,
 			agent_run_configs,

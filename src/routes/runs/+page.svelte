@@ -7,8 +7,12 @@
 	import * as Table from '$lib/components/ui/table';
 	import * as Select from '$lib/components/ui/select';
 	import * as Sheet from '$lib/components/ui/sheet';
-	import { Play, Search, Plus, KeyRound, Terminal, Trash2 } from '@lucide/svelte';
-	import { goto } from '$app/navigation';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import * as Tabs from '$lib/components/ui/tabs';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Play, Search, Plus, KeyRound, Terminal, Trash2, ExternalLink } from '@lucide/svelte';
+	import { goto, invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import Section from '$lib/components/section.svelte';
@@ -38,6 +42,20 @@
 	let credentials = $state(initialForm.credentials);
 	let newRunOpen = $state(false);
 	let keysOpen = $state(false);
+	let addProviderTab = $state<'api_key' | 'chatgpt'>('api_key');
+	let connectingChatGpt = $state(false);
+	let chatgptConnectError = $state('');
+	let connectNotice = $state('');
+	let deviceModalOpen = $state(false);
+	let deviceConnectHandledFromUrl = $state(false);
+	let deviceAuth = $state<{
+		deviceAuthId: string;
+		userCode: string;
+		verificationUri: string;
+		pollIntervalMs: number;
+	} | null>(null);
+	let devicePollTimer: ReturnType<typeof setTimeout> | undefined;
+	let devicePollInFlight = false;
 	const emptyCurl = `curl -X POST http://localhost:5173/api/runs \\
   -H 'content-type: application/json' \\
   -d '{"goal":"Find product pricing without buying anything","name":"Pricing check"}'`;
@@ -90,10 +108,12 @@
 
 	async function saveCredential() {
 		credentialError = '';
-		if (!credentialLabel.trim() || !credentialKey.trim()) {
-			credentialError = 'Enter a label and API key.';
+		if (!credentialKey.trim()) {
+			credentialError = 'Enter an API key.';
 			return;
 		}
+		const label =
+			credentialLabel.trim() || `${credentialProviderLabel(credentialProvider)} API key`;
 		if (credentialProvider === 'browserbase' && !credentialProjectId.trim()) {
 			credentialError = 'Enter a Browserbase project ID.';
 			return;
@@ -103,7 +123,7 @@
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify({
 				provider: credentialProvider,
-				label: credentialLabel.trim(),
+				label,
 				apiKey: credentialKey.trim(),
 				...(credentialProvider === 'browserbase' && credentialProjectId.trim()
 					? { projectId: credentialProjectId.trim() }
@@ -124,6 +144,7 @@
 		credentialLabel = '';
 		credentialKey = '';
 		credentialProjectId = '';
+		connectNotice = `${payload.credential.label} saved.`;
 	}
 
 	async function deleteCredential(id: string) {
@@ -151,8 +172,170 @@
 		return 'Browserbase';
 	}
 
+	type SavedCredential = (typeof data.credentials)[number];
+
+	function credentialSummary(credential: SavedCredential) {
+		if (credential.authType === 'chatgpt_oauth') {
+			const account = credential.accountEmail ?? credential.keyPreview;
+			return `ChatGPT · ${account}`;
+		}
+		return `${credentialProviderLabel(credential.provider)} · ${credential.keyPreview}`;
+	}
+
+	function credentialAuthBadge(credential: SavedCredential) {
+		if (credential.authType === 'chatgpt_oauth') return 'ChatGPT';
+		return 'API key';
+	}
+
+	function connectChatGpt() {
+		chatgptConnectError = '';
+		if (data.chatgptOAuthUseDeviceFlow) {
+			void startDeviceConnect();
+			return;
+		}
+		const label = encodeURIComponent(credentialLabel.trim() || 'ChatGPT');
+		window.location.href = `/api/auth/openai/connect?label=${label}`;
+	}
+
+	async function startDeviceConnect() {
+		chatgptConnectError = '';
+		connectingChatGpt = true;
+		try {
+			const response = await fetch('/api/auth/openai/device/start', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ label: credentialLabel.trim() || 'ChatGPT' })
+			});
+			if (!response.ok) {
+				chatgptConnectError = await response.text();
+				return;
+			}
+			const payload = (await response.json()) as {
+				deviceAuthId: string;
+				userCode: string;
+				verificationUri: string;
+				pollIntervalMs: number;
+			};
+			deviceAuth = payload;
+			deviceModalOpen = true;
+			clearChatgptDeviceUrlParam();
+			scheduleDevicePoll();
+		} catch {
+			chatgptConnectError = 'Could not start device sign-in.';
+		} finally {
+			connectingChatGpt = false;
+		}
+	}
+
+	function scheduleDevicePoll() {
+		if (devicePollTimer) clearTimeout(devicePollTimer);
+		if (!deviceAuth) return;
+		devicePollTimer = setTimeout(() => {
+			void pollDeviceStatus();
+		}, deviceAuth.pollIntervalMs);
+	}
+
+	async function readDevicePollError(response: Response) {
+		const text = await response.text();
+		try {
+			const body = JSON.parse(text) as { message?: string };
+			return body.message ?? text;
+		} catch {
+			return text;
+		}
+	}
+
+	function clearChatgptDeviceUrlParam() {
+		const url = new URL(page.url);
+		if (!url.searchParams.has('chatgpt')) return;
+		url.searchParams.delete('chatgpt');
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- same-page query cleanup on /runs
+		void goto(resolve('/runs') + url.search, {
+			replaceState: true,
+			keepFocus: true,
+			noScroll: true
+		});
+	}
+
+	async function recoverDeviceConnectAfterMissingSession() {
+		await invalidateAll();
+		const chatgptCredentials = data.credentials.filter(
+			(credential) => credential.authType === 'chatgpt_oauth'
+		);
+		const knownIds = new Set(credentials.map((credential) => credential.id));
+		const added = chatgptCredentials.find((credential) => !knownIds.has(credential.id));
+		if (!added) return false;
+		credentials = [...data.credentials];
+		credentialId = added.id;
+		connectNotice = `${added.label} connected.`;
+		deviceModalOpen = false;
+		deviceAuth = null;
+		chatgptConnectError = '';
+		return true;
+	}
+
+	async function pollDeviceStatus() {
+		if (!deviceAuth || devicePollInFlight) return;
+		devicePollInFlight = true;
+		try {
+			const response = await fetch(
+				`/api/auth/openai/device/status?deviceAuthId=${encodeURIComponent(deviceAuth.deviceAuthId)}`
+			);
+			if (!response.ok) {
+				const message = await readDevicePollError(response);
+				if (response.status === 404 && (await recoverDeviceConnectAfterMissingSession())) {
+					return;
+				}
+				if (response.status >= 500 || response.status === 429) {
+					chatgptConnectError = message;
+					scheduleDevicePoll();
+					return;
+				}
+				chatgptConnectError = message;
+				deviceModalOpen = false;
+				deviceAuth = null;
+				return;
+			}
+			const payload = (await response.json()) as
+				| { status: 'pending'; pollIntervalMs: number }
+				| { status: 'completed'; credential: SavedCredential };
+			if (payload.status === 'pending') {
+				if (deviceAuth) {
+					deviceAuth = { ...deviceAuth, pollIntervalMs: payload.pollIntervalMs };
+				}
+				scheduleDevicePoll();
+				return;
+			}
+			credentials = [...credentials, payload.credential];
+			credentialId = payload.credential.id;
+			connectNotice = `${payload.credential.label} connected.`;
+			deviceModalOpen = false;
+			deviceAuth = null;
+		} catch {
+			chatgptConnectError = 'Device sign-in failed. Retrying…';
+			scheduleDevicePoll();
+		} finally {
+			devicePollInFlight = false;
+		}
+	}
+
+	function closeDeviceModal() {
+		deviceModalOpen = false;
+		deviceAuth = null;
+		if (devicePollTimer) clearTimeout(devicePollTimer);
+	}
+
+	function selectedOpenAiCredential() {
+		return credentials.find((credential) => credential.id === credentialId);
+	}
+
+	function chatGptBlocksBrowserRun() {
+		return runMode === 'browser' && selectedOpenAiCredential()?.authType === 'chatgpt_oauth';
+	}
+
 	function canStartRun() {
 		if (runMode === 'browser') {
+			if (chatGptBlocksBrowserRun()) return false;
 			return Boolean(credentialId && browserbaseCredentialId);
 		}
 		return Boolean(credentialId);
@@ -165,6 +348,11 @@
 	}
 
 	function providerModels(): string[] {
+		if (runMode === 'tool_agent' && provider === 'openai') {
+			if (selectedOpenAiCredential()?.authType === 'chatgpt_oauth') {
+				return [...(data.modelCatalog.openaiChatGpt ?? [])];
+			}
+		}
 		return [...(data.modelCatalog[provider] ?? [])];
 	}
 
@@ -193,6 +381,28 @@
 		if (runMode === 'browser') provider = 'openai';
 	});
 
+	$effect(() => {
+		const params = page.url.searchParams;
+		if (params.get('keys') === 'open') keysOpen = true;
+		if (params.get('chatgpt') === 'device' && data.chatgptOAuthUseDeviceFlow) {
+			addProviderTab = 'chatgpt';
+			const label = params.get('label')?.trim();
+			if (label) credentialLabel = label;
+			if (!deviceConnectHandledFromUrl) {
+				deviceConnectHandledFromUrl = true;
+				void startDeviceConnect();
+			}
+		} else {
+			deviceConnectHandledFromUrl = false;
+		}
+		if (params.get('connected') === '1') {
+			const connectedId = params.get('credentialId');
+			if (connectedId) credentialId = connectedId;
+			connectNotice = 'Provider connected.';
+			void invalidateAll();
+		}
+	});
+
 	function readInitialFormState() {
 		return {
 			model: data.modelCatalog.openai[0],
@@ -213,7 +423,7 @@
 		{#snippet actions()}
 			<Button variant="outline" class="h-9 gap-1.5" onclick={() => (keysOpen = true)} type="button">
 				<KeyRound class="size-3.5" />
-				Provider keys
+				Providers
 				<span class="ml-1 font-mono text-[10px] text-muted-foreground">{credentials.length}</span>
 			</Button>
 			<Button class="h-9 gap-1.5" onclick={() => (newRunOpen = true)} type="button">
@@ -477,7 +687,7 @@
 						<Select.Trigger class="w-full">
 							{#if credentialId}
 								{@const cred = credentials.find((c) => c.id === credentialId)}
-								{cred ? `${cred.label} · ${cred.keyPreview}` : 'Select OpenAI key'}
+								{cred ? `${cred.label} · ${credentialSummary(cred)}` : 'Select OpenAI account'}
 							{:else}
 								Select OpenAI key
 							{/if}
@@ -486,13 +696,19 @@
 							{#each credentialsForProvider('openai') as credential (credential.id)}
 								<Select.Item
 									value={credential.id}
-									label="{credential.label} · {credential.keyPreview}"
+									label="{credential.label} · {credentialSummary(credential)}"
 								>
-									{credential.label} · {credential.keyPreview}
+									{credential.label} · {credentialSummary(credential)}
 								</Select.Item>
 							{/each}
 						</Select.Content>
 					</Select.Root>
+					{#if chatGptBlocksBrowserRun()}
+						<p class="text-xs text-muted-foreground">
+							Browser runs need an OpenAI API key. ChatGPT sign-in works for tool-agent runs with
+							Codex models.
+						</p>
+					{/if}
 				</div>
 				<div class="grid gap-2">
 					<Label class="text-xs">Browserbase credential</Label>
@@ -515,9 +731,9 @@
 							{#each credentialsForProvider('browserbase') as credential (credential.id)}
 								<Select.Item
 									value={credential.id}
-									label="{credential.label} · {credential.keyPreview}"
+									label="{credential.label} · {credentialSummary(credential)}"
 								>
-									{credential.label} · {credential.keyPreview}
+									{credential.label} · {credentialSummary(credential)}
 								</Select.Item>
 							{/each}
 						</Select.Content>
@@ -536,7 +752,7 @@
 						<Select.Trigger class="w-full">
 							{#if credentialId}
 								{@const cred = credentials.find((c) => c.id === credentialId)}
-								{cred ? `${cred.label} · ${cred.keyPreview}` : 'Select a saved key'}
+								{cred ? `${cred.label} · ${credentialSummary(cred)}` : 'Select a saved key'}
 							{:else}
 								Select a saved key
 							{/if}
@@ -545,9 +761,9 @@
 							{#each credentialsForProvider(provider) as credential (credential.id)}
 								<Select.Item
 									value={credential.id}
-									label="{credential.label} · {credential.keyPreview}"
+									label="{credential.label} · {credentialSummary(credential)}"
 								>
-									{credential.label} · {credential.keyPreview}
+									{credential.label} · {credentialSummary(credential)}
 								</Select.Item>
 							{/each}
 						</Select.Content>
@@ -618,13 +834,20 @@
 <Sheet.Root bind:open={keysOpen}>
 	<Sheet.Content class="w-full overflow-y-auto sm:max-w-md">
 		<Sheet.Header class="px-6 pt-6">
-			<Sheet.Title class="tracking-tight">Provider keys</Sheet.Title>
+			<Sheet.Title class="tracking-tight">Providers</Sheet.Title>
 			<Sheet.Description>
-				OpenAI, Anthropic, and Browserbase keys are encrypted at rest per account. Keys are never
-				shown again after save—only masked previews.
+				Add platform API keys or sign in with ChatGPT. Secrets are encrypted at rest and only shown
+				as masked previews.
 			</Sheet.Description>
 		</Sheet.Header>
 		<div class="flex flex-col gap-5 px-6 pt-4 pb-6">
+			{#if connectNotice}
+				<p
+					class="rounded-md border border-border/60 bg-secondary/30 px-3 py-2 text-xs text-foreground"
+				>
+					{connectNotice}
+				</p>
+			{/if}
 			<div class="flex flex-col gap-2">
 				{#if credentials.length}
 					{#each credentials as credential (credential.id)}
@@ -632,9 +855,14 @@
 							class="flex items-center justify-between gap-3 rounded-md border border-border/60 bg-background px-3 py-2.5"
 						>
 							<div class="min-w-0">
-								<p class="truncate text-sm font-medium">{credential.label}</p>
+								<div class="flex items-center gap-2">
+									<p class="truncate text-sm font-medium">{credential.label}</p>
+									<Badge variant="secondary" class="h-5 px-1.5 text-[10px]">
+										{credentialAuthBadge(credential)}
+									</Badge>
+								</div>
 								<p class="font-mono text-[11px] text-muted-foreground">
-									{credential.provider} · {credential.keyPreview}
+									{credentialSummary(credential)}
 									{#if credential.provider === 'browserbase' && credential.projectId}
 										· project {credential.projectId}
 									{/if}
@@ -654,50 +882,125 @@
 				{:else}
 					<div class="rounded-md border border-dashed border-border/60 bg-secondary/20 p-4">
 						<p class="text-xs text-muted-foreground">
-							No keys yet. Add one to launch dashboard runs.
+							No providers yet. Add an API key or ChatGPT account to launch dashboard runs.
 						</p>
 					</div>
 				{/if}
 			</div>
 
-			<div class="flex flex-col gap-2 border-t border-border/60 pt-5">
-				<Label class="text-xs">Add a key</Label>
-				<div class="grid grid-cols-2 gap-2">
-					<Select.Root
-						type="single"
-						value={credentialProvider}
-						onValueChange={(v) => {
-							if (v) {
-								credentialProvider = v as typeof credentialProvider;
-								credentialProjectId = '';
-							}
-						}}
-					>
-						<Select.Trigger class="w-full">
-							{credentialProviderLabel(credentialProvider)}
-						</Select.Trigger>
-						<Select.Content>
-							<Select.Item value="openai" label="OpenAI">OpenAI</Select.Item>
-							<Select.Item value="anthropic" label="Anthropic">Anthropic</Select.Item>
-							<Select.Item value="browserbase" label="Browserbase">Browserbase</Select.Item>
-						</Select.Content>
-					</Select.Root>
-					<Input class="text-xs" bind:value={credentialLabel} placeholder="Label" />
-				</div>
-				{#if credentialProvider === 'browserbase'}
-					<Input
-						class="text-xs"
-						bind:value={credentialProjectId}
-						placeholder="Project ID (required)"
-						autocomplete="off"
-					/>
-				{/if}
-				<Input class="text-xs" type="password" bind:value={credentialKey} placeholder="API key" />
-				<Button type="button" onclick={saveCredential}>Save encrypted key</Button>
-				{#if credentialError}
-					<p class="text-xs text-destructive">{credentialError}</p>
-				{/if}
+			<div class="flex flex-col gap-3 border-t border-border/60 pt-5">
+				<Label class="text-xs">Add provider</Label>
+				<Tabs.Root bind:value={addProviderTab} class="flex flex-col gap-3">
+					<Tabs.List class="grid w-full grid-cols-2">
+						<Tabs.Trigger value="api_key" class="text-xs">API key</Tabs.Trigger>
+						<Tabs.Trigger value="chatgpt" class="text-xs">ChatGPT</Tabs.Trigger>
+					</Tabs.List>
+					<Tabs.Content value="api_key" class="mt-0 flex flex-col gap-2">
+						<div class="grid grid-cols-2 gap-2">
+							<Select.Root
+								type="single"
+								value={credentialProvider}
+								onValueChange={(v) => {
+									if (v) {
+										credentialProvider = v as typeof credentialProvider;
+										credentialProjectId = '';
+									}
+								}}
+							>
+								<Select.Trigger class="w-full">
+									{credentialProviderLabel(credentialProvider)}
+								</Select.Trigger>
+								<Select.Content>
+									<Select.Item value="openai" label="OpenAI">OpenAI</Select.Item>
+									<Select.Item value="anthropic" label="Anthropic">Anthropic</Select.Item>
+									<Select.Item value="browserbase" label="Browserbase">Browserbase</Select.Item>
+								</Select.Content>
+							</Select.Root>
+							<Input class="text-xs" bind:value={credentialLabel} placeholder="Label (optional)" />
+						</div>
+						{#if credentialProvider === 'browserbase'}
+							<Input
+								class="text-xs"
+								bind:value={credentialProjectId}
+								placeholder="Project ID (required)"
+								autocomplete="off"
+							/>
+						{/if}
+						<Input
+							class="text-xs"
+							type="password"
+							bind:value={credentialKey}
+							placeholder="API key"
+							autocomplete="off"
+						/>
+						<Button type="button" class="h-9" onclick={saveCredential}>Save API key</Button>
+						{#if credentialError && addProviderTab === 'api_key'}
+							<p class="text-xs text-destructive">{credentialError}</p>
+						{/if}
+					</Tabs.Content>
+					<Tabs.Content value="chatgpt" class="mt-0 flex flex-col gap-2">
+						<p class="text-xs text-muted-foreground">
+							Use a ChatGPT subscription for OpenAI-backed runs. Sign-in opens OpenAI in a new tab
+							and completes here with a one-time code.
+						</p>
+						<Input class="text-xs" bind:value={credentialLabel} placeholder="Label (optional)" />
+						<Button type="button" class="h-9" disabled={connectingChatGpt} onclick={connectChatGpt}>
+							{connectingChatGpt ? 'Connecting…' : 'Connect with ChatGPT'}
+						</Button>
+						{#if !data.chatgptOAuthUseDeviceFlow}
+							<Button
+								type="button"
+								variant="outline"
+								class="h-9"
+								disabled={connectingChatGpt}
+								onclick={startDeviceConnect}
+							>
+								Sign in with device code
+							</Button>
+						{/if}
+						{#if chatgptConnectError && addProviderTab === 'chatgpt'}
+							<p class="text-xs text-destructive">{chatgptConnectError}</p>
+						{/if}
+					</Tabs.Content>
+				</Tabs.Root>
 			</div>
 		</div>
 	</Sheet.Content>
 </Sheet.Root>
+
+<Dialog.Root bind:open={deviceModalOpen} onOpenChange={(open) => !open && closeDeviceModal()}>
+	<Dialog.Content class="sm:max-w-md">
+		<Dialog.Header>
+			<Dialog.Title>Sign in with device code</Dialog.Title>
+			<Dialog.Description>
+				Open the link below, sign in to ChatGPT, and enter the one-time code. This window will
+				update when authorization completes.
+			</Dialog.Description>
+		</Dialog.Header>
+		{#if deviceAuth}
+			{@const activeDeviceAuth = deviceAuth}
+			<div class="grid gap-3 py-2">
+				<div class="rounded-md border border-border/60 bg-secondary/20 px-3 py-2">
+					<p class="text-xs text-muted-foreground">Your code</p>
+					<p class="font-mono text-2xl font-semibold tracking-widest">
+						{activeDeviceAuth.userCode}
+					</p>
+				</div>
+				<Button
+					variant="outline"
+					class="h-9 gap-2"
+					type="button"
+					onclick={() =>
+						window.open(activeDeviceAuth.verificationUri, '_blank', 'noopener,noreferrer')}
+				>
+					<ExternalLink class="size-3.5" />
+					Open verification page
+				</Button>
+				<p class="text-xs text-muted-foreground">Waiting for authorization…</p>
+			</div>
+		{/if}
+		<Dialog.Footer>
+			<Button variant="ghost" type="button" onclick={closeDeviceModal}>Cancel</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>

@@ -6,7 +6,9 @@ import { evaluateRunSchema } from '$lib/server/validation';
 export async function POST(event) {
 	const userId = requireUserId(event);
 	const input = await parseJson(event, evaluateRunSchema);
-	const evaluation = await evaluateRun(event.params.id, userId, input.constraints);
+	const evaluation = await evaluateRun(event.params.id, userId, input.constraints, {
+		credentialId: input.credentialId
+	});
 	if (!evaluation) notFound('Run not found');
 	return ok({
 		evaluation: {

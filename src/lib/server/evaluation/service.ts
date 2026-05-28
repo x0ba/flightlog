@@ -4,11 +4,13 @@ import { evaluationFindings, evaluations, events, runs, spans } from '$lib/serve
 import { publicId } from '$lib/server/public-id';
 import { evaluateRules } from './rules';
 import { fallbackEvaluation, runLlmEvaluation } from './llm';
+import { resolveEvaluationTransport } from './transport';
 
 export async function evaluateRun(
 	publicRunId: string,
 	ownerUserId: string | undefined,
-	constraints: string[]
+	constraints: string[],
+	options?: { credentialId?: string }
 ) {
 	const [run] = await db
 		.select()
@@ -43,30 +45,37 @@ export async function evaluateRun(
 		.returning();
 
 	try {
-		const llm = await runLlmEvaluation({
-			run,
-			events: eventsList,
-			spans: spanList,
-			constraints,
-			ruleSummary
+		const transport = await resolveEvaluationTransport({
+			ownerUserId: ownerUserId ?? run.ownerUserId,
+			runMetadata: run.metadata,
+			credentialId: options?.credentialId
 		});
-		const result = llm.skipped
-			? fallbackEvaluation({
+		const result = transport
+			? (
+					await runLlmEvaluation({
+						run,
+						events: eventsList,
+						spans: spanList,
+						constraints,
+						ruleSummary,
+						transport
+					})
+				).evaluation
+			: fallbackEvaluation({
 					goalCompleted: run.status === 'success',
 					violatedConstraints: ruleSummary.violatedConstraints,
 					score: run.status === 'success' && !ruleSummary.violatedConstraints ? 80 : 40,
 					summary: 'Rule-based evaluation completed without LLM assistance.',
-					explanation: llm.reason,
+					explanation: noLlmCredentialMessage(run.ownerUserId),
 					findings: [
 						...ruleSummary.findings,
 						{
 							severity: 'info',
 							category: 'other',
-							message: llm.reason
+							message: noLlmCredentialMessage(run.ownerUserId)
 						}
 					]
-				})
-			: llm.evaluation;
+				});
 
 		const [updated] = await db
 			.update(evaluations)
@@ -135,4 +144,11 @@ async function insertFindings(
 		data: finding
 	}));
 	await db.insert(evaluationFindings).values(rows);
+}
+
+function noLlmCredentialMessage(ownerUserId: string | null) {
+	if (ownerUserId) {
+		return 'No OpenAI credential available for evaluation. Connect ChatGPT or add an API key under Runs → Keys, or set OPENAI_API_KEY for server-side fallback.';
+	}
+	return 'No OpenAI credential available for evaluation. Set OPENAI_API_KEY or evaluate a run that was created with a saved OpenAI credential.';
 }

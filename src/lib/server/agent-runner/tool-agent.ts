@@ -81,6 +81,7 @@ export async function runToolAgent(input: ToolAgentRunInput) {
 		const result = await adapter.createResponse({
 			model,
 			apiKey: credential.apiKey,
+			openaiTransport: credential.openaiTransport,
 			messages,
 			tools,
 			temperature: input.request.temperature
