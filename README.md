@@ -79,12 +79,11 @@ dashboard stores only encrypted provider keys and returns masked previews to the
 required for dashboard access and API ingestion. Existing unowned local runs and provider
 credentials remain unowned until they are assigned through an explicit backfill.
 
-LLM evaluations use the same OpenAI credential as the run when one was selected (platform API key
-or ChatGPT subscription via Codex OAuth). You can pass `credentialId` on `POST /api/runs/:id/evaluate`
-to override. If no credential is available, evaluations still complete with deterministic rule
-checks. `OPENAI_API_KEY` remains an optional server-side fallback when no user credential applies.
-Browser-mode
-UI agent runs use a saved OpenAI credential (ChatGPT subscription or platform API key) plus a
+LLM evaluations call `api.openai.com` with `OPENAI_API_KEY` when configured. Without it,
+evaluations still complete using deterministic rule checks. `POST /api/runs/:id/evaluate` accepts
+optional `constraints` only.
+
+Browser-mode UI agent runs use a saved OpenAI credential (ChatGPT subscription or platform API key) plus a
 Browserbase credential. Tool-agent dashboard runs use the encrypted OpenAI or Anthropic credential
 selected in the UI.
 
