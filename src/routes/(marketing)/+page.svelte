@@ -196,7 +196,6 @@ jobs:
 		z-index: 40;
 		background: color-mix(in oklch, var(--background) 75%, transparent);
 		backdrop-filter: blur(10px);
-		-webkit-backdrop-filter: blur(10px);
 		border-bottom: 1px solid var(--rule);
 		transition:
 			padding 360ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -208,7 +207,6 @@ jobs:
 		background: transparent;
 		border-bottom-color: transparent;
 		backdrop-filter: none;
-		-webkit-backdrop-filter: none;
 	}
 	.nav {
 		display: flex;
@@ -245,7 +243,6 @@ jobs:
 		border-radius: inherit;
 		background: color-mix(in oklch, var(--background) 80%, transparent);
 		backdrop-filter: blur(10px);
-		-webkit-backdrop-filter: blur(10px);
 	}
 	.nav.is-floating > * {
 		position: relative;
