@@ -17,11 +17,7 @@ export async function resolveEvaluationTransport(input: {
 	const credentialPublicId = input.credentialId ?? agentRequest?.credentialId;
 
 	if (input.ownerUserId && credentialPublicId) {
-		const credential = await getProviderApiKey(
-			input.ownerUserId,
-			credentialPublicId,
-			'openai'
-		);
+		const credential = await getProviderApiKey(input.ownerUserId, credentialPublicId, 'openai');
 		if (credential?.openaiTransport) return credential.openaiTransport;
 		if (credential?.apiKey) return { kind: 'platform', apiKey: credential.apiKey };
 	}

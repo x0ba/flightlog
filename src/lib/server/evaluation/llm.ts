@@ -77,10 +77,7 @@ export async function runLlmEvaluation(input: {
 		}))
 	});
 
-	const model =
-		resolveModelForTransport(input.transport, env.OPENAI_EVAL_MODEL || DEFAULT_MODEL) ??
-		env.OPENAI_EVAL_MODEL ??
-		DEFAULT_MODEL;
+	const model = resolveModelForTransport(input.transport, env.OPENAI_EVAL_MODEL || DEFAULT_MODEL);
 
 	const body =
 		input.transport.kind === 'codex'
@@ -112,7 +109,10 @@ export async function runLlmEvaluation(input: {
 	})) as OpenAIResponsePayload;
 	const outputText = extractOutputText(payload);
 	if (!outputText) throw new Error('OpenAI evaluation returned no text output');
-	return { skipped: false as const, evaluation: llmEvaluationSchema.parse(JSON.parse(outputText)) };
+	return {
+		skipped: false as const,
+		evaluation: llmEvaluationSchema.parse(JSON.parse(stripJsonMarkdownFence(outputText)))
+	};
 }
 
 function extractOutputText(payload: OpenAIResponsePayload) {
@@ -122,6 +122,10 @@ function extractOutputText(payload: OpenAIResponsePayload) {
 		?.flatMap((item) => item.content ?? [])
 		.map((content) => content.text)
 		.find((text) => text && text.trim().length > 0);
+}
+
+function stripJsonMarkdownFence(text: string) {
+	return text.trim().replace(/^```(?:json)?\s*\n([\s\S]*?)\n```$/i, '$1');
 }
 
 export function fallbackEvaluation(input: {
