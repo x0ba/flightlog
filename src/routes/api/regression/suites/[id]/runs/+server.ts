@@ -5,6 +5,11 @@ import { scheduleRegressionRun } from '$lib/server/regression/executor';
 import { findRegressionSuiteForUser } from '$lib/server/regression/suites';
 import { startRegressionRunSchema } from '$lib/server/validation';
 
+/** @type {import('@sveltejs/adapter-vercel').Config} */
+export const config = {
+	maxDuration: 300
+};
+
 export async function POST(event) {
 	const userId = requireUserId(event);
 	const suite = await findRegressionSuiteForUser(event.params.id, userId);

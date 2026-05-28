@@ -3,6 +3,11 @@ import { ok, parseJson } from '$lib/server/http';
 import { createRegressionSuite, listRegressionSuites } from '$lib/server/regression/suites';
 import { createRegressionSuiteSchema } from '$lib/server/validation';
 
+/** @type {import('@sveltejs/adapter-vercel').Config} */
+export const config = {
+	maxDuration: 300
+};
+
 export async function POST(event) {
 	const userId = requireUserId(event);
 	const input = await parseJson(event, createRegressionSuiteSchema);
