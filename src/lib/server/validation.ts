@@ -142,7 +142,8 @@ export const updateSpanSchema = z.object({
 });
 
 export const evaluateRunSchema = z.object({
-	constraints: z.array(z.string().min(1)).optional().default([])
+	constraints: z.array(z.string().min(1)).optional().default([]),
+	credentialId: credentialIdSchema.optional()
 });
 
 export const createAgentRunSchema = z.object({
