@@ -249,7 +249,12 @@
 		const url = new URL(page.url);
 		if (!url.searchParams.has('chatgpt')) return;
 		url.searchParams.delete('chatgpt');
-		void goto(url, { replaceState: true, keepFocus: true, noScroll: true });
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- same-page query cleanup on /runs
+		void goto(resolve('/runs') + url.search, {
+			replaceState: true,
+			keepFocus: true,
+			noScroll: true
+		});
 	}
 
 	async function recoverDeviceConnectAfterMissingSession() {
