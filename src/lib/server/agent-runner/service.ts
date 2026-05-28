@@ -10,6 +10,7 @@ import { findRun, patchRunMetadata, updateRun } from '$lib/server/runs';
 import { listSpans } from '$lib/server/traces';
 import { createBrowserSession } from './browser';
 import { needsApproval, resolveApproval, waitForApproval } from './approval';
+import { assertChatGptSupportsBrowserRuns } from '$lib/server/openai-transport';
 import { continueComputerResponse, createInitialComputerResponse } from './openai';
 import { getProviderApiKey } from '$lib/server/provider-credentials';
 import { publishRunEvent } from './stream';
@@ -205,9 +206,18 @@ async function runAgent(publicRunId: string) {
 		return;
 	}
 
+	try {
+		assertChatGptSupportsBrowserRuns(openAiCredential.openaiTransport);
+	} catch (cause) {
+		const message = cause instanceof Error ? cause.message : String(cause);
+		await failRun(publicRunId, message);
+		return;
+	}
+
 	const computerUseCredentials = {
 		apiKey: openAiCredential.apiKey,
-		model: initialAgentRequest.model
+		model: initialAgentRequest.model,
+		openaiTransport: openAiCredential.openaiTransport
 	};
 	const browserCredentials = {
 		apiKey: browserbaseCredential.apiKey,
