@@ -25,21 +25,44 @@ export type TokenEndpointResponse = {
 };
 
 type OAuthErrorBody = {
-	error?: string;
+	error?:
+		| string
+		| {
+				message?: string;
+				type?: string;
+				code?: string | null;
+		  };
 	error_description?: string;
+};
+
+type ApiKeyExchangeResponse = {
+	access_token?: string;
+	openai_api_key?: string;
+	expires_in?: number;
 };
 
 async function readOAuthError(response: Response) {
 	const text = await response.text();
 	try {
 		const body = JSON.parse(text) as OAuthErrorBody;
+		if (body.error && typeof body.error === 'object') {
+			return {
+				code: body.error.type ?? body.error.code ?? 'oauth_error',
+				description: body.error.message ?? body.error_description ?? text
+			};
+		}
 		return {
-			code: body.error ?? 'oauth_error',
-			description: body.error_description
+			code: typeof body.error === 'string' ? body.error : 'oauth_error',
+			description: body.error_description ?? text
 		};
 	} catch {
 		return { code: 'oauth_error', description: text };
 	}
+}
+
+/** Codex returns the exchanged API credential in `access_token` (RFC 8693), not `openai_api_key`. */
+export function apiKeyFromExchangeResponse(payload: ApiKeyExchangeResponse) {
+	return payload.access_token?.trim() || payload.openai_api_key?.trim() || undefined;
 }
 
 export function buildAuthorizationUrl(input: {
@@ -104,11 +127,29 @@ export async function exchangeIdTokenForApiKey(input: { clientId: string; idToke
 		const oauthError = await readOAuthError(response);
 		throw new OAuthTokenExchangeFailedError(oauthError.code, oauthError.description);
 	}
-	const payload = (await response.json()) as { openai_api_key?: string };
-	if (!payload.openai_api_key) {
-		throw new OAuthTokenExchangeFailedError('missing_api_key', 'No openai_api_key in response');
+	const payload = (await response.json()) as ApiKeyExchangeResponse;
+	const apiKey = apiKeyFromExchangeResponse(payload);
+	if (!apiKey) {
+		throw new OAuthTokenExchangeFailedError(
+			'missing_api_key',
+			'No access_token in token exchange response'
+		);
 	}
-	return payload.openai_api_key;
+	return apiKey;
+}
+
+export async function resolveOAuthApiKey(clientId: string, tokens: TokenEndpointResponse) {
+	if (tokens.openai_api_key?.trim()) {
+		return tokens.openai_api_key.trim();
+	}
+	try {
+		return await exchangeIdTokenForApiKey({ clientId, idToken: tokens.id_token });
+	} catch (cause) {
+		if (tokens.access_token?.trim()) {
+			return tokens.access_token.trim();
+		}
+		throw cause;
+	}
 }
 
 export async function refreshOAuthTokens(input: { clientId: string; refreshToken: string }) {
@@ -211,10 +252,7 @@ export async function completeDeviceCodeLogin(input: {
 		code: input.authorizationCode,
 		codeVerifier: input.codeVerifier
 	});
-	const apiKey = await exchangeIdTokenForApiKey({
-		clientId: input.clientId,
-		idToken: tokens.id_token
-	});
+	const apiKey = await resolveOAuthApiKey(input.clientId, tokens);
 	return { ...tokens, api_key: apiKey };
 }
 
@@ -225,10 +263,7 @@ export async function completeAuthorizationCodeLogin(input: {
 	codeVerifier: string;
 }) {
 	const tokens = await exchangeAuthorizationCode(input);
-	const apiKey = await exchangeIdTokenForApiKey({
-		clientId: input.clientId,
-		idToken: tokens.id_token
-	});
+	const apiKey = await resolveOAuthApiKey(input.clientId, tokens);
 	return { ...tokens, api_key: apiKey };
 }
 
