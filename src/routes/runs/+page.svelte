@@ -320,8 +320,17 @@
 		if (devicePollTimer) clearTimeout(devicePollTimer);
 	}
 
+	function selectedOpenAiCredential() {
+		return credentials.find((credential) => credential.id === credentialId);
+	}
+
+	function chatGptBlocksBrowserRun() {
+		return runMode === 'browser' && selectedOpenAiCredential()?.authType === 'chatgpt_oauth';
+	}
+
 	function canStartRun() {
 		if (runMode === 'browser') {
+			if (chatGptBlocksBrowserRun()) return false;
 			return Boolean(credentialId && browserbaseCredentialId);
 		}
 		return Boolean(credentialId);
@@ -334,6 +343,11 @@
 	}
 
 	function providerModels(): string[] {
+		if (runMode === 'tool_agent' && provider === 'openai') {
+			if (selectedOpenAiCredential()?.authType === 'chatgpt_oauth') {
+				return [...(data.modelCatalog.openaiChatGpt ?? [])];
+			}
+		}
 		return [...(data.modelCatalog[provider] ?? [])];
 	}
 
@@ -684,6 +698,12 @@
 							{/each}
 						</Select.Content>
 					</Select.Root>
+					{#if chatGptBlocksBrowserRun()}
+						<p class="text-xs text-muted-foreground">
+							Browser runs need an OpenAI API key. ChatGPT sign-in works for tool-agent runs with Codex
+							models.
+						</p>
+					{/if}
 				</div>
 				<div class="grid gap-2">
 					<Label class="text-xs">Browserbase credential</Label>
