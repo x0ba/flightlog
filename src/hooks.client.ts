@@ -1,6 +1,9 @@
 import * as Sentry from '@sentry/sveltekit';
 import { env } from '$env/dynamic/public';
 import { initializeClerkClient } from 'clerk-sveltekit/client';
+import posthog from 'posthog-js';
+import { PUBLIC_POSTHOG_PROJECT_TOKEN } from '$env/static/public';
+import type { HandleClientError } from '@sveltejs/kit';
 
 // If you don't want to use Session Replay, remove the `Replay` integration,
 // `replaysSessionSampleRate` and `replaysOnErrorSampleRate` options.
@@ -20,4 +23,18 @@ initializeClerkClient(env.PUBLIC_CLERK_PUBLISHABLE_KEY ?? '', {
 	signInUrl: '/sign-in',
 	signUpUrl: '/sign-up'
 });
-export const handleError = Sentry.handleErrorWithSentry();
+
+export async function init() {
+	posthog.init(PUBLIC_POSTHOG_PROJECT_TOKEN, {
+		api_host: '/ingest',
+		ui_host: 'https://us.posthog.com',
+		defaults: '2026-01-30',
+		capture_exceptions: true
+	});
+}
+
+export const handleError: HandleClientError = async ({ error, status, message }) => {
+	Sentry.captureException(error);
+	posthog.captureException(error);
+	return { message, status };
+};

@@ -3,11 +3,24 @@ import { requireUserId } from '$lib/server/auth';
 import { createRun, listRuns } from '$lib/server/runs';
 import { createRunSchema } from '$lib/server/validation';
 import { ok, parseJson } from '$lib/server/http';
+import { getPostHogClient } from '$lib/server/posthog';
 
 export async function POST(event) {
 	const userId = requireUserId(event);
 	const input = await parseJson(event, createRunSchema);
 	const run = await createRun({ ...input, ownerUserId: userId });
+
+	const posthog = getPostHogClient();
+	posthog.capture({
+		distinctId: event.request.headers.get('x-posthog-distinct-id') || userId,
+		event: 'api_run_created',
+		properties: {
+			run_id: run.publicId,
+			run_status: run.status,
+			$session_id: event.request.headers.get('x-posthog-session-id') || undefined
+		}
+	});
+
 	return ok({ run: { id: run.publicId, status: run.status } }, { status: 201 });
 }
 

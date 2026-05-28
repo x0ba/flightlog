@@ -12,6 +12,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Play, Search, Plus, KeyRound, Terminal, Trash2, ExternalLink } from '@lucide/svelte';
 	import { goto, invalidateAll } from '$app/navigation';
+	import posthog from 'posthog-js';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import PageHeader from '$lib/components/page-header.svelte';
@@ -80,7 +81,11 @@
 		try {
 			const response = await fetch('/api/agent-runs', {
 				method: 'POST',
-				headers: { 'content-type': 'application/json' },
+				headers: {
+					'content-type': 'application/json',
+					'x-posthog-distinct-id': posthog.get_distinct_id() ?? '',
+					'x-posthog-session-id': posthog.get_session_id() ?? ''
+				},
 				body: JSON.stringify({
 					prompt: prompt.trim(),
 					name: runName.trim() || undefined,
@@ -120,7 +125,11 @@
 		}
 		const response = await fetch('/api/settings/providers', {
 			method: 'POST',
-			headers: { 'content-type': 'application/json' },
+			headers: {
+				'content-type': 'application/json',
+				'x-posthog-distinct-id': posthog.get_distinct_id() ?? '',
+				'x-posthog-session-id': posthog.get_session_id() ?? ''
+			},
 			body: JSON.stringify({
 				provider: credentialProvider,
 				label,
@@ -148,7 +157,13 @@
 	}
 
 	async function deleteCredential(id: string) {
-		const response = await fetch(`/api/settings/providers/${id}`, { method: 'DELETE' });
+		const response = await fetch(`/api/settings/providers/${id}`, {
+			method: 'DELETE',
+			headers: {
+				'x-posthog-distinct-id': posthog.get_distinct_id() ?? '',
+				'x-posthog-session-id': posthog.get_session_id() ?? ''
+			}
+		});
 		if (!response.ok) return;
 		credentials = credentials.filter((credential) => credential.id !== id);
 		if (credentialId === id) {
@@ -189,6 +204,9 @@
 
 	function connectChatGpt() {
 		chatgptConnectError = '';
+		posthog.capture('chatgpt_connect_started', {
+			flow: data.chatgptOAuthUseDeviceFlow ? 'device' : 'redirect'
+		});
 		if (data.chatgptOAuthUseDeviceFlow) {
 			void startDeviceConnect();
 			return;

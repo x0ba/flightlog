@@ -9,6 +9,8 @@
 	import PageHeader from '$lib/components/page-header.svelte';
 	import Section from '$lib/components/section.svelte';
 	import StatusPill from '$lib/components/status-pill.svelte';
+	import posthog from 'posthog-js';
+	import { browser } from '$app/environment';
 
 	let { data } = $props();
 	const initialData = readInitialData();
@@ -26,6 +28,15 @@
 	);
 	let approvalSubmitting = $state(false);
 	let evaluating = $state(false);
+
+	$effect(() => {
+		if (browser) {
+			posthog.capture('run_viewed', {
+				run_id: initialData.run.publicId,
+				run_status: initialData.run.status
+			});
+		}
+	});
 
 	$effect(() => {
 		if (selectedSequence === 0) selectedSequence = events[0]?.sequence ?? 0;
