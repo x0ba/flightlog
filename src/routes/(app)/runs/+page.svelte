@@ -18,6 +18,7 @@
 	import PageHeader from '$lib/components/page-header.svelte';
 	import Section from '$lib/components/section.svelte';
 	import StatusPill from '$lib/components/status-pill.svelte';
+	import DotMatrixLoader from '$lib/components/dotmatrix-loader.svelte';
 
 	let { data } = $props();
 	const initialForm = readInitialFormState();
@@ -840,8 +841,13 @@
 				class="h-10 justify-center gap-2"
 				type="submit"
 				disabled={creatingRun || !canStartRun()}
+				aria-busy={creatingRun}
 			>
-				<Play class="size-3.5" />
+				{#if creatingRun}
+					<DotMatrixLoader variant="inline" ariaLabel="Starting run" />
+				{:else}
+					<Play class="size-3.5" />
+				{/if}
 				{creatingRun ? 'Starting…' : 'Start run'}
 			</Button>
 		</form>
@@ -962,7 +968,16 @@
 							and completes here with a one-time code.
 						</p>
 						<Input class="text-xs" bind:value={credentialLabel} placeholder="Label (optional)" />
-						<Button type="button" class="h-9" disabled={connectingChatGpt} onclick={connectChatGpt}>
+						<Button
+							type="button"
+							class="h-9 gap-2"
+							disabled={connectingChatGpt}
+							aria-busy={connectingChatGpt}
+							onclick={connectChatGpt}
+						>
+							{#if connectingChatGpt}
+								<DotMatrixLoader variant="inline" ariaLabel="Connecting ChatGPT" />
+							{/if}
 							{connectingChatGpt ? 'Connecting…' : 'Connect with ChatGPT'}
 						</Button>
 						{#if !data.chatgptOAuthUseDeviceFlow}
@@ -1014,7 +1029,10 @@
 					<ExternalLink class="size-3.5" />
 					Open verification page
 				</Button>
-				<p class="text-xs text-muted-foreground">Waiting for authorization…</p>
+				<div class="flex items-center gap-2 text-xs text-muted-foreground">
+					<DotMatrixLoader variant="inline" ariaLabel="Waiting for authorization" />
+					<span>Waiting for authorization…</span>
+				</div>
 			</div>
 		{/if}
 		<Dialog.Footer>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import AppShell from '$lib/components/app-shell.svelte';
+	import RouteNavigationLoader from '$lib/components/route-navigation-loader.svelte';
 	import posthog from 'posthog-js';
 	import { browser } from '$app/environment';
 
@@ -22,5 +23,8 @@
 	<span class="sr-only">Signed in</span>
 {/if}
 <AppShell userId={data.userId}>
-	{@render children()}
+	<div class="relative min-h-full">
+		<RouteNavigationLoader scope="app" />
+		{@render children()}
+	</div>
 </AppShell>

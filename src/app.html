@@ -4,9 +4,147 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="text-scale" content="scale" />
+		<style>
+			#boot-loader {
+				position: fixed;
+				inset: 0;
+				z-index: 9999;
+				display: grid;
+				place-items: center;
+				background: oklch(0.098 0.005 285);
+				transition:
+					opacity 180ms ease,
+					visibility 180ms ease;
+			}
+
+			html.app-ready #boot-loader {
+				opacity: 0;
+				visibility: hidden;
+				pointer-events: none;
+			}
+
+			.boot-dmx {
+				display: grid;
+				grid-template-columns: repeat(5, 6px);
+				grid-template-rows: repeat(5, 6px);
+				gap: 3px;
+			}
+
+			.boot-dmx span {
+				width: 6px;
+				height: 6px;
+				border-radius: 999px;
+				background: oklch(0.78 0.12 75);
+				opacity: 0.2;
+				animation: boot-dmx-pulse 1.35s ease-in-out infinite;
+			}
+
+			.boot-dmx span:nth-child(1) {
+				animation-delay: 0ms;
+			}
+			.boot-dmx span:nth-child(2) {
+				animation-delay: 90ms;
+			}
+			.boot-dmx span:nth-child(3) {
+				animation-delay: 180ms;
+			}
+			.boot-dmx span:nth-child(4) {
+				animation-delay: 270ms;
+			}
+			.boot-dmx span:nth-child(5) {
+				animation-delay: 360ms;
+			}
+			.boot-dmx span:nth-child(6) {
+				animation-delay: 450ms;
+			}
+			.boot-dmx span:nth-child(7) {
+				animation-delay: 540ms;
+			}
+			.boot-dmx span:nth-child(8) {
+				animation-delay: 630ms;
+			}
+			.boot-dmx span:nth-child(9) {
+				animation-delay: 720ms;
+			}
+			.boot-dmx span:nth-child(10) {
+				animation-delay: 810ms;
+			}
+			.boot-dmx span:nth-child(11) {
+				animation-delay: 900ms;
+			}
+			.boot-dmx span:nth-child(12) {
+				animation-delay: 990ms;
+			}
+			.boot-dmx span:nth-child(13) {
+				animation-delay: 1080ms;
+			}
+			.boot-dmx span:nth-child(14) {
+				animation-delay: 1170ms;
+			}
+			.boot-dmx span:nth-child(15) {
+				animation-delay: 1260ms;
+			}
+			.boot-dmx span:nth-child(16) {
+				animation-delay: 1350ms;
+			}
+			.boot-dmx span:nth-child(17) {
+				animation-delay: 1440ms;
+			}
+			.boot-dmx span:nth-child(18) {
+				animation-delay: 1530ms;
+			}
+			.boot-dmx span:nth-child(19) {
+				animation-delay: 1620ms;
+			}
+			.boot-dmx span:nth-child(20) {
+				animation-delay: 1710ms;
+			}
+			.boot-dmx span:nth-child(21) {
+				animation-delay: 1800ms;
+			}
+			.boot-dmx span:nth-child(22) {
+				animation-delay: 1890ms;
+			}
+			.boot-dmx span:nth-child(23) {
+				animation-delay: 1980ms;
+			}
+			.boot-dmx span:nth-child(24) {
+				animation-delay: 2070ms;
+			}
+			.boot-dmx span:nth-child(25) {
+				animation-delay: 2160ms;
+			}
+
+			@keyframes boot-dmx-pulse {
+				0%,
+				100% {
+					opacity: 0.18;
+					transform: scale(0.92);
+				}
+				50% {
+					opacity: 1;
+					transform: scale(1);
+				}
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.boot-dmx span {
+					animation: none;
+					opacity: 0.55;
+				}
+			}
+		</style>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
+		<div id="boot-loader" aria-hidden="true">
+			<div class="boot-dmx" aria-hidden="true">
+				<span></span><span></span><span></span><span></span><span></span> <span></span><span></span
+				><span></span><span></span><span></span> <span></span><span></span><span></span><span></span
+				><span></span> <span></span><span></span><span></span><span></span><span></span>
+				<span></span><span></span><span></span><span></span><span></span>
+			</div>
+		</div>
 		<div style="display: contents">%sveltekit.body%</div>
 	</body>
 </html>

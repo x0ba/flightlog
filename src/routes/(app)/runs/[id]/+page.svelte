@@ -4,7 +4,8 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Tabs from '$lib/components/ui/tabs';
-	import { Check, X, LoaderCircle } from '@lucide/svelte';
+	import { Check, X } from '@lucide/svelte';
+	import DotMatrixLoader from '$lib/components/dotmatrix-loader.svelte';
 	import { resolve } from '$app/paths';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import Section from '$lib/components/section.svelte';
@@ -282,7 +283,7 @@
 				onclick={evaluateRun}
 			>
 				{#if evaluating}
-					<LoaderCircle class="size-3.5 animate-spin" />
+					<DotMatrixLoader variant="inline" ariaLabel="Evaluating run" />
 					Evaluating
 				{:else}
 					Evaluate run
@@ -327,9 +328,14 @@
 							type="button"
 							class="gap-2"
 							disabled={approvalSubmitting}
+							aria-busy={approvalSubmitting}
 							onclick={() => submitApproval('approved')}
 						>
-							<Check class="size-3.5" />
+							{#if approvalSubmitting}
+								<DotMatrixLoader variant="inline" ariaLabel="Submitting approval" />
+							{:else}
+								<Check class="size-3.5" />
+							{/if}
 							Approve
 						</Button>
 						<Button
@@ -337,9 +343,14 @@
 							variant="outline"
 							class="gap-2"
 							disabled={approvalSubmitting}
+							aria-busy={approvalSubmitting}
 							onclick={() => submitApproval('rejected')}
 						>
-							<X class="size-3.5" />
+							{#if approvalSubmitting}
+								<DotMatrixLoader variant="inline" ariaLabel="Submitting rejection" />
+							{:else}
+								<X class="size-3.5" />
+							{/if}
 							Reject
 						</Button>
 					</div>
@@ -464,7 +475,7 @@
 					<div
 						class="flex items-center gap-3 rounded-md border border-status-running/60 bg-status-running/10 p-3"
 					>
-						<LoaderCircle class="size-4 shrink-0 animate-spin text-status-running" />
+						<DotMatrixLoader variant="inline" ariaLabel="Evaluation running" />
 						<div class="min-w-0">
 							<p class="text-xs font-medium">Evaluation running</p>
 							<p class="text-xs text-muted-foreground">Scoring the run and checking constraints.</p>
