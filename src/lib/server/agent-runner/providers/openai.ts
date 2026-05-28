@@ -1,4 +1,12 @@
-import type { ModelProviderAdapter } from './types';
+import {
+	CODEX_DEFAULT_INSTRUCTIONS,
+	codexToolNameAliases,
+	formatOpenAIResponsesError,
+	postOpenAIResponses,
+	resolveModelForTransport,
+	toCodexToolName
+} from '$lib/server/openai-transport';
+import type { AgentModelMessage, ModelProviderAdapter } from './types';
 
 type OpenAIResponsePayload = {
 	id?: string;
@@ -16,35 +24,41 @@ type OpenAIResponsePayload = {
 export const openaiProvider: ModelProviderAdapter = {
 	provider: 'openai',
 	async createResponse(input) {
-		const response = await fetch('https://api.openai.com/v1/responses', {
-			method: 'POST',
-			headers: {
-				authorization: `Bearer ${input.apiKey}`,
-				'content-type': 'application/json'
-			},
-			body: JSON.stringify({
-				model: input.model,
-				temperature: input.temperature,
-				input: input.messages.map((message) => ({
-					role: message.role === 'tool' ? 'user' : message.role,
-					content:
-						message.role === 'tool'
-							? `Tool result for ${message.name ?? message.toolCallId ?? 'tool'}:\n${message.content}`
-							: message.content
-				})),
-				tools: input.tools.map((tool) => ({
-					type: 'function',
-					name: tool.name,
-					description: tool.description,
-					parameters: tool.inputSchema,
-					strict: false
-				})),
-				truncation: 'auto'
-			})
-		});
-		if (!response.ok)
-			throw new Error(`OpenAI model call failed: ${response.status} ${await response.text()}`);
-		const payload = (await response.json()) as OpenAIResponsePayload;
+		const transport = input.openaiTransport ?? {
+			kind: 'platform' as const,
+			apiKey: input.apiKey
+		};
+		const model = resolveModelForTransport(transport, input.model) ?? input.model;
+		const codexToolNames =
+			transport.kind === 'codex' ? codexToolNameAliases(input.tools) : undefined;
+		const tools = input.tools.map((tool) => ({
+			type: 'function',
+			name: codexToolNames ? toCodexToolName(tool.name) : tool.name,
+			description: tool.description,
+			parameters: tool.inputSchema,
+			...(transport.kind === 'platform' ? { strict: false } : {})
+		}));
+		const body: Record<string, unknown> =
+			transport.kind === 'codex'
+				? buildCodexResponsesBody(input.messages, { model, tools })
+				: {
+						model,
+						input: mapPlatformInputMessages(input.messages),
+						tools
+					};
+		if (transport.kind === 'platform') {
+			if (input.temperature !== undefined) body.temperature = input.temperature;
+			body.truncation = 'auto';
+		}
+
+		let payload: OpenAIResponsePayload;
+		try {
+			payload = (await postOpenAIResponses({ transport, body })) as OpenAIResponsePayload;
+		} catch (cause) {
+			if (cause instanceof Error) throw cause;
+			throw new Error(formatOpenAIResponsesError(500, String(cause)));
+		}
+
 		const output = payload.output ?? [];
 		return {
 			id: payload.id,
@@ -54,7 +68,7 @@ export const openaiProvider: ModelProviderAdapter = {
 					? [
 							{
 								id: item.call_id ?? item.id ?? item.name,
-								name: item.name,
+								name: codexToolNames?.get(item.name) ?? item.name,
 								input: parseJson(item.arguments) ?? {}
 							}
 						]
@@ -80,4 +94,55 @@ function parseJson(value: unknown) {
 	} catch {
 		return undefined;
 	}
+}
+
+export function buildCodexResponsesBody(
+	messages: AgentModelMessage[],
+	base: { model: string; tools: Record<string, unknown>[] }
+) {
+	const instructions =
+		messages
+			.filter((message) => message.role === 'system')
+			.map((message) => message.content)
+			.join('\n\n')
+			.trim() || CODEX_DEFAULT_INSTRUCTIONS;
+	const conversation = messages.filter((message) => message.role !== 'system');
+	return {
+		...base,
+		instructions,
+		input: mapCodexInputMessages(conversation),
+		tool_choice: base.tools.length ? 'auto' : 'none',
+		parallel_tool_calls: false
+	};
+}
+
+function mapPlatformInputMessages(messages: AgentModelMessage[]) {
+	return messages.map((message) => ({
+		role: message.role === 'tool' ? 'user' : message.role,
+		content:
+			message.role === 'tool'
+				? `Tool result for ${message.name ?? message.toolCallId ?? 'tool'}:\n${message.content}`
+				: message.content
+	}));
+}
+
+function mapCodexInputMessages(messages: AgentModelMessage[]) {
+	return messages.map((message) => {
+		if (message.role === 'tool') {
+			return {
+				role: 'user',
+				content: [
+					{
+						type: 'input_text',
+						text: `Tool result for ${message.name ?? message.toolCallId ?? 'tool'}:\n${message.content}`
+					}
+				]
+			};
+		}
+		const contentType = message.role === 'assistant' ? 'output_text' : 'input_text';
+		return {
+			role: message.role,
+			content: [{ type: contentType, text: message.content }]
+		};
+	});
 }
