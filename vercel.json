@@ -1,4 +1,18 @@
 {
 	"$schema": "https://openapi.vercel.sh/vercel.json",
-	"buildCommand": "bun run build:vercel"
+	"buildCommand": "bun run build:vercel",
+	"functions": {
+		"api/github/webhook/**": {
+			"maxDuration": 60
+		},
+		"api/agent-runs/**": {
+			"maxDuration": 300
+		},
+		"api/runs/**/stream/**": {
+			"maxDuration": 300
+		},
+		"api/regression/**": {
+			"maxDuration": 300
+		}
+	}
 }

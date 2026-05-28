@@ -5,6 +5,11 @@ import { requireUserId } from '$lib/server/auth';
 import { ok, parseJson } from '$lib/server/http';
 import { createAgentRunSchema } from '$lib/server/validation';
 
+/** @type {import('@sveltejs/adapter-vercel').Config} */
+export const config = {
+	maxDuration: 300
+};
+
 export async function POST(event) {
 	const userId = requireUserId(event);
 	const input = await parseJson(event, createAgentRunSchema);
