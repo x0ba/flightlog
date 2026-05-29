@@ -1,19 +1,12 @@
 <script lang="ts">
-	import { page } from '$app/state';
+	import { onMount } from 'svelte';
 	import AuthWidgetLoading from '$lib/components/auth-widget-loading.svelte';
-	import PostAuthRedirect from '$lib/components/post-auth-redirect.svelte';
-	import ClerkLoaded from 'clerk-sveltekit/client/ClerkLoaded.svelte';
-	import ClerkLoading from 'clerk-sveltekit/client/ClerkLoading.svelte';
-	import SignIn from 'clerk-sveltekit/client/SignIn.svelte';
-	import { safeRedirectPath } from '$lib/auth-redirect';
 
-	const redirectUrl = $derived(
-		safeRedirectPath(
-			page.url.searchParams.get('redirect_url') ??
-				page.url.searchParams.get('redirectUrl') ??
-				page.url.searchParams.get('redirectAfterAuth')
-		)
-	);
+	let { data }: { data: { signInUrl: string } } = $props();
+
+	onMount(() => {
+		window.location.href = data.signInUrl;
+	});
 </script>
 
 <svelte:head><title>Sign in | FlightLog</title></svelte:head>
@@ -26,16 +19,6 @@
 			</p>
 			<h1 class="mt-2 text-2xl font-semibold text-foreground">Sign in to FlightLog</h1>
 		</div>
-		<ClerkLoading>
-			<AuthWidgetLoading />
-		</ClerkLoading>
-		<ClerkLoaded let:clerk>
-			{#if clerk?.user}
-				<PostAuthRedirect to={redirectUrl} />
-				<AuthWidgetLoading />
-			{:else}
-				<SignIn {redirectUrl} signUpUrl="/sign-up" />
-			{/if}
-		</ClerkLoaded>
+		<AuthWidgetLoading />
 	</section>
 </main>

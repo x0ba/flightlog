@@ -4,14 +4,8 @@ declare global {
 	namespace App {
 		// interface Error {}
 		interface Locals {
-			session?: {
-				userId: string;
-				claims?: unknown;
-			};
-			auth?: {
-				userId: string;
-				claims?: unknown;
-			};
+			auth: import('@workos/authkit-sveltekit').AuthKitAuth;
+			bearerUserId?: string;
 		}
 		// interface PageData {}
 		// interface PageState {}
