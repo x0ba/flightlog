@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { ArrowUpRight, GitBranch, Activity, ShieldCheck } from '@lucide/svelte';
 
@@ -51,6 +52,7 @@ jobs:
 	] as const;
 
 	let scrolled = $state(false);
+	const dashboardPath = resolve('/runs');
 
 	onMount(() => {
 		const onScroll = () => {
@@ -60,6 +62,13 @@ jobs:
 		window.addEventListener('scroll', onScroll, { passive: true });
 		return () => window.removeEventListener('scroll', onScroll);
 	});
+
+	function openDashboard(event: MouseEvent) {
+		if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+			return;
+		event.preventDefault();
+		void goto(dashboardPath);
+	}
 </script>
 
 <svelte:head>
@@ -91,7 +100,7 @@ jobs:
 				<a href="https://github.com/x0ba/flightlog">GitHub</a>
 			</nav>
 
-			<a href={resolve('/runs')} rel="external" class="nav-cta">
+			<a href={dashboardPath} rel="external" class="nav-cta" onclick={openDashboard}>
 				Dashboard
 				<ArrowUpRight class="size-3.5" />
 			</a>
@@ -112,7 +121,7 @@ jobs:
 				requests on regression suites — surfaced directly as GitHub Check Runs.
 			</p>
 			<div class="cta-row">
-				<a href={resolve('/runs')} rel="external" class="btn-primary">
+				<a href={dashboardPath} rel="external" class="btn-primary" onclick={openDashboard}>
 					Open dashboard
 					<ArrowUpRight class="size-4" />
 				</a>
@@ -176,7 +185,7 @@ jobs:
 		<div>
 			<a href="https://github.com/x0ba/flightlog">GitHub</a>
 			<a href="https://github.com/x0ba/flightlog/blob/main/README.md">Docs</a>
-			<a href={resolve('/runs')} rel="external">Dashboard</a>
+			<a href={dashboardPath} rel="external" onclick={openDashboard}>Dashboard</a>
 		</div>
 	</footer>
 </div>

@@ -31,7 +31,7 @@
 		</div>
 	{:else}
 		<div class="fixed inset-0 z-50 bg-background" aria-hidden="true">
-			<DotMatrixLoader variant="page" />
+			<DotMatrixLoader variant="boot" />
 		</div>
 	{/if}
 {/if}
