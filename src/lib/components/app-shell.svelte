@@ -4,8 +4,15 @@
 	import { Activity, GitBranch, Menu, X } from '@lucide/svelte';
 	import AuthCorner from '$lib/components/auth-corner.svelte';
 
-	let { children, userId = null }: { children: import('svelte').Snippet; userId?: string | null } =
-		$props();
+	let {
+		children,
+		userId = null,
+		email = null
+	}: {
+		children: import('svelte').Snippet;
+		userId?: string | null;
+		email?: string | null;
+	} = $props();
 	let mobileOpen = $state(false);
 
 	const nav = [
@@ -87,7 +94,7 @@
 		</nav>
 
 		<div class="mt-auto border-t border-border/60 px-4 py-3">
-			<AuthCorner {userId} />
+			<AuthCorner {userId} {email} />
 		</div>
 	</aside>
 

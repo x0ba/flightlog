@@ -2,12 +2,15 @@ import { sequence } from '@sveltejs/kit/hooks';
 import * as Sentry from '@sentry/sveltekit';
 import { env } from '$env/dynamic/private';
 import type { Handle, HandleServerError } from '@sveltejs/kit';
-import { handleClerk } from 'clerk-sveltekit/server';
+import { authKitHandle, configureAuthKit } from '@workos/authkit-sveltekit';
 import { authenticateBearer, guardProtectedPath } from '$lib/server/auth';
 import { getPostHogClient } from '$lib/server/posthog';
 
-const clerk = handleClerk(env.CLERK_SECRET_KEY ?? '', {
-	protectedPaths: []
+configureAuthKit({
+	clientId: env.WORKOS_CLIENT_ID ?? '',
+	apiKey: env.WORKOS_API_KEY ?? '',
+	redirectUri: env.WORKOS_REDIRECT_URI ?? '',
+	cookiePassword: env.WORKOS_COOKIE_PASSWORD ?? ''
 });
 
 const ingestProxy: Handle = async ({ event, resolve }) => {
@@ -48,12 +51,12 @@ export const handle: Handle = sequence(
 	Sentry.sentryHandle(),
 	ingestProxy,
 	async ({ event, resolve }) => {
-		const response = await clerk({
+		const response = await authKitHandle()({
 			event,
-			resolve: async (clerkEvent) => {
-				await authenticateBearer(clerkEvent);
-				guardProtectedPath(clerkEvent);
-				return resolve(clerkEvent);
+			resolve: async (authEvent) => {
+				await authenticateBearer(authEvent);
+				guardProtectedPath(authEvent);
+				return resolve(authEvent);
 			}
 		});
 		return response;

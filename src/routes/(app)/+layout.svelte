@@ -22,7 +22,7 @@
 {#if data.userId}
 	<span class="sr-only">Signed in</span>
 {/if}
-<AppShell userId={data.userId}>
+<AppShell userId={data.userId} email={data.email}>
 	<div class="relative min-h-full">
 		<RouteNavigationLoader scope="app" />
 		{@render children()}

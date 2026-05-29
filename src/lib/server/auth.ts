@@ -1,16 +1,25 @@
 import { env } from '$env/dynamic/private';
-import { verifyToken } from '@clerk/backend';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { readPostAuthRedirectUrl as readPostAuthRedirectUrlFromSearchParams } from '$lib/auth-redirect';
 import { error, redirect, type RequestEvent } from '@sveltejs/kit';
 
 export { safeRedirectPath } from '$lib/auth-redirect';
+
+let jwks: ReturnType<typeof createRemoteJWKSet> | undefined;
+
+function getJwks(clientId: string) {
+	if (!jwks) {
+		jwks = createRemoteJWKSet(new URL(`https://api.workos.com/sso/jwks/${clientId}`));
+	}
+	return jwks;
+}
 
 export function readPostAuthRedirectUrl(event: RequestEvent, fallback?: `/${string}`) {
 	return readPostAuthRedirectUrlFromSearchParams(event.url.searchParams, fallback);
 }
 
 export function readUserId(event: RequestEvent) {
-	return event.locals.auth?.userId ?? event.locals.session?.userId;
+	return event.locals.auth?.user?.id ?? event.locals.bearerUserId ?? undefined;
 }
 
 export function requireUserId(event: RequestEvent) {
@@ -20,16 +29,18 @@ export function requireUserId(event: RequestEvent) {
 }
 
 export async function authenticateBearer(event: RequestEvent) {
-	if (event.locals.session || event.locals.auth?.userId) return;
+	if (event.locals.auth?.user?.id) return;
 	const header = event.request.headers.get('authorization');
 	const token = header?.match(/^Bearer\s+(.+)$/i)?.[1];
-	if (!token || !env.CLERK_SECRET_KEY) return;
+	if (!token || !env.WORKOS_CLIENT_ID) return;
 	try {
-		const claims = await verifyToken(token, {
-			secretKey: env.CLERK_SECRET_KEY,
-			issuer: (issuer) => issuer.startsWith('https://clerk.') && issuer.includes('.clerk.accounts')
+		const { payload } = await jwtVerify(token, getJwks(env.WORKOS_CLIENT_ID), {
+			issuer: 'https://api.workos.com',
+			audience: env.WORKOS_CLIENT_ID
 		});
-		event.locals.auth = { userId: claims.sub, claims };
+		if (typeof payload.sub === 'string') {
+			event.locals.bearerUserId = payload.sub;
+		}
 	} catch {
 		// Invalid bearer tokens fall through to the normal protected-route 401.
 	}

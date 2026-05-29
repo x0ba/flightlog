@@ -1,6 +1,4 @@
 import * as Sentry from '@sentry/sveltekit';
-import { env } from '$env/dynamic/public';
-import { initializeClerkClient } from 'clerk-sveltekit/client';
 import posthog from 'posthog-js';
 import { PUBLIC_POSTHOG_PROJECT_TOKEN } from '$env/static/public';
 import type { HandleClientError } from '@sveltejs/kit';
@@ -15,13 +13,6 @@ Sentry.init({
 	integrations: [Sentry.replayIntegration()],
 	enableLogs: true,
 	sendDefaultPii: true
-});
-
-initializeClerkClient(env.PUBLIC_CLERK_PUBLISHABLE_KEY ?? '', {
-	afterSignInUrl: '/runs',
-	afterSignUpUrl: '/runs',
-	signInUrl: '/sign-in',
-	signUpUrl: '/sign-up'
 });
 
 export async function init() {
