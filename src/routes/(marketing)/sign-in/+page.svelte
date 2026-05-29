@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import AuthWidgetLoading from '$lib/components/auth-widget-loading.svelte';
+	import PostAuthRedirect from '$lib/components/post-auth-redirect.svelte';
 	import ClerkLoaded from 'clerk-sveltekit/client/ClerkLoaded.svelte';
 	import ClerkLoading from 'clerk-sveltekit/client/ClerkLoading.svelte';
 	import SignIn from 'clerk-sveltekit/client/SignIn.svelte';
@@ -8,7 +9,9 @@
 
 	const redirectUrl = $derived(
 		safeRedirectPath(
-			page.url.searchParams.get('redirect_url') ?? page.url.searchParams.get('redirectUrl')
+			page.url.searchParams.get('redirect_url') ??
+				page.url.searchParams.get('redirectUrl') ??
+				page.url.searchParams.get('redirectAfterAuth')
 		)
 	);
 </script>
@@ -26,8 +29,13 @@
 		<ClerkLoading>
 			<AuthWidgetLoading />
 		</ClerkLoading>
-		<ClerkLoaded>
-			<SignIn {redirectUrl} signUpUrl="/sign-up" />
+		<ClerkLoaded let:clerk>
+			{#if clerk?.user}
+				<PostAuthRedirect to={redirectUrl} />
+				<AuthWidgetLoading />
+			{:else}
+				<SignIn {redirectUrl} signUpUrl="/sign-up" />
+			{/if}
 		</ClerkLoaded>
 	</section>
 </main>
