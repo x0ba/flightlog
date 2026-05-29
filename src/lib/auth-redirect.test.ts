@@ -16,7 +16,7 @@ describe('safeRedirectPath', () => {
 });
 
 describe('readPostAuthRedirectUrl', () => {
-	it('prefers redirect_url and supports Clerk redirect params', () => {
+	it('prefers redirect_url and supports redirect params', () => {
 		expect(readPostAuthRedirectUrl(new URLSearchParams('redirect_url=/runs'))).toBe('/runs');
 		expect(readPostAuthRedirectUrl(new URLSearchParams('redirectUrl=/regression'))).toBe(
 			'/regression'

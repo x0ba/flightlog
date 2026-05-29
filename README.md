@@ -32,9 +32,19 @@ Required environment:
 ```sh
 DATABASE_URL=
 FLIGHTLOG_KEYS_SECRET=
-PUBLIC_CLERK_PUBLISHABLE_KEY=
-CLERK_SECRET_KEY=
+WORKOS_CLIENT_ID=
+WORKOS_API_KEY=
+WORKOS_REDIRECT_URI=http://localhost:5173/callback
+WORKOS_COOKIE_PASSWORD=
 ```
+
+Generate a cookie password with `openssl rand -base64 24` (minimum 32 characters). Register each
+environment's redirect URI in the [WorkOS dashboard](https://dashboard.workos.com) — it must match
+`WORKOS_REDIRECT_URI` exactly (for example `http://localhost:5173/callback` locally).
+
+For SDK and API calls, use a WorkOS access token as the Bearer token. After signing in through the
+dashboard, copy `locals.auth.accessToken` from a server load or debug session — there is no
+dedicated token endpoint.
 
 Optional LLM evaluation environment:
 
@@ -75,7 +85,7 @@ PUBLIC_APP_URL=http://localhost:5173
 ```
 
 `FLIGHTLOG_KEYS_SECRET` is required when saving or using dashboard-entered provider API keys. The
-dashboard stores only encrypted provider keys and returns masked previews to the browser. Clerk is
+dashboard stores only encrypted provider keys and returns masked previews to the browser. WorkOS AuthKit is
 required for dashboard access and API ingestion. Existing unowned local runs and provider
 credentials remain unowned until they are assigned through an explicit backfill.
 
@@ -89,7 +99,7 @@ selected in the UI.
 
 ## UI Agent Runs
 
-Sign in with Clerk, open `/runs`, connect ChatGPT (subscription) or save a platform API key for
+Sign in with WorkOS, open `/runs`, connect ChatGPT (subscription) or save a platform API key for
 OpenAI/Anthropic, choose a run mode,
 provider, framework, model, and tools, then start a run. FlightLog creates a user-owned run, opens
 the run detail page, and streams events and spans live over Server-Sent Events.
@@ -137,7 +147,7 @@ Create a run:
 ```sh
 curl -X POST http://localhost:5173/api/runs \
   -H 'content-type: application/json' \
-  -H 'authorization: Bearer CLERK_TOKEN' \
+  -H 'authorization: Bearer WORKOS_ACCESS_TOKEN' \
   -d '{"goal":"Find product pricing without buying anything","name":"Pricing check"}'
 ```
 
@@ -146,7 +156,7 @@ Append an event:
 ```sh
 curl -X POST http://localhost:5173/api/runs/run_id/events \
   -H 'content-type: application/json' \
-  -H 'authorization: Bearer CLERK_TOKEN' \
+  -H 'authorization: Bearer WORKOS_ACCESS_TOKEN' \
   -d '{"type":"tool_call","message":"Search pricing page","data":{"tool":"browser.search","input":{"query":"pricing"}}}'
 ```
 
@@ -155,7 +165,7 @@ Attach an artifact:
 ```sh
 curl -X POST http://localhost:5173/api/runs/run_id/artifacts \
   -H 'content-type: application/json' \
-  -H 'authorization: Bearer CLERK_TOKEN' \
+  -H 'authorization: Bearer WORKOS_ACCESS_TOKEN' \
   -d '{"type":"text","name":"observation","content":"Pricing page loaded"}'
 ```
 
@@ -164,12 +174,12 @@ Finish and evaluate:
 ```sh
 curl -X PATCH http://localhost:5173/api/runs/run_id \
   -H 'content-type: application/json' \
-  -H 'authorization: Bearer CLERK_TOKEN' \
+  -H 'authorization: Bearer WORKOS_ACCESS_TOKEN' \
   -d '{"status":"success"}'
 
 curl -X POST http://localhost:5173/api/runs/run_id/evaluate \
   -H 'content-type: application/json' \
-  -H 'authorization: Bearer CLERK_TOKEN' \
+  -H 'authorization: Bearer WORKOS_ACCESS_TOKEN' \
   -d '{"constraints":["Do not place a real order"]}'
 ```
 
@@ -180,7 +190,7 @@ import { FlightLogClient } from '$lib/sdk/client';
 
 const flightlog = new FlightLogClient({
 	endpoint: 'http://localhost:5173',
-	apiKey: clerkToken
+	apiKey: workosAccessToken
 });
 const run = await flightlog.startRun({
 	goal: 'Find product pricing without buying anything',
@@ -205,7 +215,7 @@ import { FlightLogClient, openAIAttributes } from '$lib';
 
 const flightlog = new FlightLogClient({
 	endpoint: 'http://localhost:5173',
-	apiKey: clerkToken
+	apiKey: workosAccessToken
 });
 const trace = await flightlog.startTrace({
 	goal: 'Look up the customer and draft a refund response',
@@ -248,7 +258,7 @@ Create a suite:
 ```sh
 curl -X POST http://localhost:5173/api/regression/suites \
   -H 'content-type: application/json' \
-  -H 'authorization: Bearer CLERK_TOKEN' \
+  -H 'authorization: Bearer WORKOS_ACCESS_TOKEN' \
   -d '{"name":"PR smoke tests","repositoryOwner":"acme","repositoryName":"support-agent"}'
 ```
 
@@ -257,7 +267,7 @@ Add a case:
 ```sh
 curl -X POST http://localhost:5173/api/regression/suites/suite_id \
   -H 'content-type: application/json' \
-  -H 'authorization: Bearer CLERK_TOKEN' \
+  -H 'authorization: Bearer WORKOS_ACCESS_TOKEN' \
   -d '{"name":"Lookup customer","goal":"Find the customer record for support@example.com","constraints":["Do not delete records"],"minScore":80}'
 ```
 
@@ -266,7 +276,7 @@ Run a suite manually:
 ```sh
 curl -X POST http://localhost:5173/api/regression/suites/suite_id/runs \
   -H 'content-type: application/json' \
-  -H 'authorization: Bearer CLERK_TOKEN' \
+  -H 'authorization: Bearer WORKOS_ACCESS_TOKEN' \
   -d '{}'
 ```
 
@@ -283,7 +293,7 @@ import { FlightLogClient } from '$lib/sdk/client';
 
 const flightlog = new FlightLogClient({
 	endpoint: 'http://localhost:5173',
-	apiKey: clerkToken
+	apiKey: workosAccessToken
 });
 
 const suite = await flightlog.createRegressionSuite({
@@ -336,7 +346,7 @@ await trace.logModelCall({
 
 ## MVP Limitations
 
-- No organizations or projects; isolation is per Clerk user.
+- No organizations or projects; isolation is per WorkOS user.
 - Artifacts are stored in Postgres as text, URLs, or data URLs.
 - Replay is timeline-based, not a true browser session replay.
 - LLM evaluation is optional.
