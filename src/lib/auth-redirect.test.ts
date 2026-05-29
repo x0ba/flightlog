@@ -16,10 +16,13 @@ describe('safeRedirectPath', () => {
 });
 
 describe('readPostAuthRedirectUrl', () => {
-	it('prefers redirect_url and supports redirectUrl', () => {
+	it('prefers redirect_url and supports Clerk redirect params', () => {
 		expect(readPostAuthRedirectUrl(new URLSearchParams('redirect_url=/runs'))).toBe('/runs');
 		expect(readPostAuthRedirectUrl(new URLSearchParams('redirectUrl=/regression'))).toBe(
 			'/regression'
+		);
+		expect(readPostAuthRedirectUrl(new URLSearchParams('redirectAfterAuth=/runs/123'))).toBe(
+			'/runs/123'
 		);
 	});
 
